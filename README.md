@@ -1,2 +1,3 @@
-# clerk-table-stats
-Add simple columns summaries to your Clerk tables
+# 📊 clerk-table-stats
+
+Add summary charts to your Clerk tables!
