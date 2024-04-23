@@ -19,3 +19,4 @@ yarn.lock
 /build
 /public/build
 .nrepl-port
+.cache
