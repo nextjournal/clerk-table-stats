@@ -1,4 +1,4 @@
-{:aliases
+{:deps {io.github.nextjournal/clerk {:mvn/version "0.15.957"}}
+ :aliases
  {:dev {:paths ["dev"]
-        :extra-deps {meta-csv/meta-csv {:mvn/version "0.1.0"}}}
-  :nextjournal/clerk {:extra-deps {io.github.nextjournal/clerk {:git/sha "9386339ab6a4b3791d66f56be63871b73dd12dee"}}}}}
+        :extra-deps {meta-csv/meta-csv {:mvn/version "0.1.0"}}}}}
