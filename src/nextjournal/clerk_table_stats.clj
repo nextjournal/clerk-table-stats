@@ -64,9 +64,9 @@
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
       :rows (map (fn [m] (map (fn [path]
-                               (if (contains? computed-paths path)
-                                 ((get-in computed-columns path) m)
-                                 (get-in m path viewer/missing-pred))) visible-paths)) s)})))
+                                (if (contains? computed-paths path)
+                                  ((get-in computed-columns path) m)
+                                  (get-in m path viewer/missing-pred))) visible-paths)) s)})))
 
 (defn normalize-map-of-seq
   ([s] (normalize-map-of-seq {} s))
@@ -93,11 +93,11 @@
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
       :rows (map-indexed (fn [i _] (map (fn [[k1 k2]]
-                                         (let [v (nth (get m k1) i viewer/missing-pred)]
-                                           (if k2
-                                             (get v k2)
-                                             v)))
-                                       visible-paths))
+                                          (let [v (nth (get m k1) i viewer/missing-pred)]
+                                            (if k2
+                                              (get v k2)
+                                              v)))
+                                        visible-paths))
                          (val (apply max-key (comp viewer/count-bounded val) m)))})))
 
 (defn normalize-table-data
@@ -114,34 +114,130 @@
   {:render-fn '(fn [head+body opts]
                  [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                   {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
+                  ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
                   (into
                    [:table.w-full]
                    (nextjournal.clerk.render/inspect-children opts)
                    head+body)])})
 
-(def table-head-viewer
-  {:render-fn '(fn [header-row {:as opts :keys [path]}]
-                 (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
-                       sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))]
-                   [:thead
-                    (into [:tr.print:border-b-2.print:border-black]
-                          (map-indexed (fn [idx cell]
-                                         [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                                          cell #_(nextjournal.clerk.render/inspect-presented opts cell)] #_(ductile.clerk.render/header-cell {:sub-headers? (seq sub-headers)
-                                                                            :header-cell cell
-                                                                            :opts opts
-                                                                            :index idx})))
-                          header-cells)
-                    (when-not (empty? sub-headers)
-                      (into [:tr.print:border-b-2.print:border-black]
-                            (map-indexed (fn [idx cell]
-                                           [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                                            cell #_(nextjournal.clerk.render/inspect-presented opts cell)]
+#_(defn header-cell [{:keys [sub-headers? nested? header-cell index opts]}]
+    (let [v (cond
+              nested? (last header-cell)
+              (vector? header-cell) (first header-cell)
+              :else header-cell)
+          k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
+          title (when (or (string? v) (keyword? v) (symbol? v)) v)
+          {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
+      [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+       (cond-> {:class (str
+                        "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                        (when (and sub-headers? nested?) "first:border-l-0 ")
+                        (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+         (and column-layout (column-layout k)) (assoc :style (column-layout k))
+         (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
+         (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
+         title (assoc :title title))
+       [:div (get translated-keys v (trk v))]
+       (when-let [[component choices-or-label :as filter] (get filters k)]
+         (case component
+           :checkbox (let [selected (get-in @!expanded-at [:filters k] false)]
+                       [:label.w-full.flex.items-center.gap-1.justify-center {:style {:height 30}}
+                        [:input {:type :checkbox
+                                 :on-change (fn []
+                                              (swap! !expanded-at update-in [:filters v] not)
+                                              (update-filters! k filter (not selected)))
+                                 :checked (or selected false)}] choices-or-label])
+           :multi-select (let [selected (get-in @!expanded-at [:filters k] #{})]
+                           [multi-select {:choices choices-or-label
+                                          :selected-value selected
+                                          :show-selected? true
+                                          :placeholder "Filter…"
+                                          :on-change (fn [val]
+                                                       (let [new-selected (conj selected val)]
+                                                         (swap! !expanded-at assoc-in [:filters k] new-selected)
+                                                         (update-filters! k filter new-selected)))
+                                          :on-remove (fn [val]
+                                                       (let [new-selected (disj selected val)]
+                                                         (swap! !expanded-at assoc-in [:filters k] new-selected)
+                                                         (update-filters! k filter new-selected)))}])))]))
 
-                                           )#_(ductile.clerk.render/header-cell {:header-cell %2
-                                                                             :opts opts
-                                                                             :index %1}))
-                            sub-headers))]))})
+
+(def table-head-viewer
+  {:render-fn '
+   (fn [header-row {:as opts :keys [path]}]
+     (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
+           sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
+           sub-headers? (seq sub-headers)]
+       [:thead
+        (into [:tr.print:border-b-2.print:border-black
+               ]
+              (map-indexed (fn [idx cell]
+                             (let [header-cell cell]
+                               ((fn [{:keys [sub-headers? nested? header-cell index opts]}]
+                                  (let [v (cond
+                                            nested? (last header-cell)
+                                            (vector? header-cell) (first header-cell)
+                                            :else header-cell)
+                                        k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
+                                        title (when (or (string? v) (keyword? v) (symbol? v)) v)
+                                        {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
+                                    [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                                     (cond-> {:class (str
+                                                      "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                                      (when (and sub-headers? nested?) "first:border-l-0 ")
+                                                      (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+                                       (and column-layout (column-layout k)) (assoc :style (column-layout k))
+                                       (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
+                                       (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
+                                       title (assoc :title title))
+                                     [:div v]
+                                     #_(when-let [[component choices-or-label :as filter] (get filters k)]
+                                       (case component
+                                         :checkbox (let [selected (get-in @!expanded-at [:filters k] false)]
+                                                     [:label.w-full.flex.items-center.gap-1.justify-center {:style {:height 30}}
+                                                      [:input {:type :checkbox
+                                                               :on-change (fn []
+                                                                            (swap! !expanded-at update-in [:filters v] not)
+                                                                            (update-filters! k filter (not selected)))
+                                                               :checked (or selected false)}] choices-or-label])
+                                         :multi-select (let [selected (get-in @!expanded-at [:filters k] #{})]
+                                                         [multi-select {:choices choices-or-label
+                                                                        :selected-value selected
+                                                                        :show-selected? true
+                                                                        :placeholder "Filter…"
+                                                                        :on-change (fn [val]
+                                                                                     (let [new-selected (conj selected val)]
+                                                                                       (swap! !expanded-at assoc-in [:filters k] new-selected)
+                                                                                       (update-filters! k filter new-selected)))
+                                                                        :on-remove (fn [val]
+                                                                                     (let [new-selected (disj selected val)]
+                                                                                       (swap! !expanded-at assoc-in [:filters k] new-selected)
+                                                                                       (update-filters! k filter new-selected)))}])))]))
+                                {:sub-headers? sub-headers? :header-cell cell :opts opts :index idx})
+
+
+                               #_[:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                                  (cond-> {:class (str
+                                                   "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                                   (when (and sub-headers? false #_nested?) "first:border-l-0 ")
+                                                   #_(if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+                                    (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2))
+                                  cell #_(nextjournal.clerk.render/inspect-presented opts cell)]) #_(ductile.clerk.render/header-cell {:sub-headers? (seq sub-headers)
+                                                                                                                                       :header-cell cell
+                                                                                                                                       :opts opts
+                                                                                                                                       :index idx})))
+              header-cells)
+        #_(prn :sub-headers sub-headers)
+        (when-not (empty? sub-headers)
+          (into [:tr.print:border-b-2.print:border-black]
+                (map-indexed (fn [idx cell]
+                               [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                                cell #_(nextjournal.clerk.render/inspect-presented opts cell)]
+
+                               )#_(ductile.clerk.render/header-cell {:header-cell %2
+                                                                     :opts opts
+                                                                     :index %1}))
+                sub-headers))]))})
 
 (def table-body-viewer
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
@@ -191,33 +287,34 @@
 
 {::clerk/visibility {:code :hide :result :show}}
 
-;; ## Seq of map
+(comment
+  ;; ## Seq of map
 
-(def seq-of-map
-  [{:ars/id "1"
-    :compound/name "Krefeld"
-    :ductile/id #uuid "1174774f-17ec-442c-803f-2906015be68f"
-    :entry/datetime #inst "2023-09-28T06:33:01Z"}
-   {:ars/id "2"
-    :compound/name "Krefeld"
-    :ductile/id #uuid "774f1174-7ec1-2c44-3f80-15be68f29060"}])
+  (def seq-of-map
+    [{:ars/id "1"
+      :compound/name "Krefeld"
+      :ductile/id #uuid "1174774f-17ec-442c-803f-2906015be68f"
+      :entry/datetime #inst "2023-09-28T06:33:01Z"}
+     {:ars/id "2"
+      :compound/name "Krefeld"
+      :ductile/id #uuid "774f1174-7ec1-2c44-3f80-15be68f29060"}])
 
-(clerk/example
-  (normalize-seq-of-map seq-of-map)
-  (normalize-seq-of-map {:column-order [:compound/name :entry/datetime]
-                         :hide-columns [:ars/id :ductile/id]} seq-of-map)
-  (normalize-seq-of-map {:column-order [:compound/abbreviation :compound/name :entry/datetime]
-                         :hide-columns [:ars/id :ductile/id]
-                         :computed-columns {:compound/abbreviation (fn [m]
-                                                                     (str/upper-case (str/join (take 3 (:compound/name m)))))}} seq-of-map))
+  (clerk/example
+    (normalize-seq-of-map seq-of-map)
+    (normalize-seq-of-map {:column-order [:compound/name :entry/datetime]
+                           :hide-columns [:ars/id :ductile/id]} seq-of-map)
+    (normalize-seq-of-map {:column-order [:compound/abbreviation :compound/name :entry/datetime]
+                           :hide-columns [:ars/id :ductile/id]
+                           :computed-columns {:compound/abbreviation (fn [m]
+                                                                       (str/upper-case (str/join (take 3 (:compound/name m)))))}} seq-of-map))
 
-(clerk/table seq-of-map)
-(clerk/table {::clerk/render-opts {:column-order [:compound/name :entry/datetime]}} seq-of-map)
-(clerk/table {::clerk/render-opts {:hide-columns [:ars/id :ductile/id]}} seq-of-map)
-#_(clerk/table {::clerk/render-opts {:column-order [#_:compound/abbreviation :compound/name :entry/datetime]
-                                     :hide-columns [:ars/id :ductile/id]
-                                     :computed-columns {:compound/abbreviation (fn [m]
-                                                                                 (str/upper-case (str/join (take 3 (:compound/name m)))))}}} seq-of-map)
+  (clerk/table seq-of-map)
+  (clerk/table {::clerk/render-opts {:column-order [:compound/name :entry/datetime]}} seq-of-map)
+  (clerk/table {::clerk/render-opts {:hide-columns [:ars/id :ductile/id]}} seq-of-map)
+  #_(clerk/table {::clerk/render-opts {:column-order [#_:compound/abbreviation :compound/name :entry/datetime]
+                                       :hide-columns [:ars/id :ductile/id]
+                                       :computed-columns {:compound/abbreviation (fn [m]
+                                                                                   (str/upper-case (str/join (take 3 (:compound/name m)))))}}} seq-of-map))
 
 ;; ## Nested seq of map
 
@@ -238,7 +335,7 @@
     :exit/transport {:transport/mode :mode/truck}}])
 
 (clerk/example
-  (normalize-seq-of-map nested-seq-of-map)
+  #_(normalize-seq-of-map nested-seq-of-map)
   (normalize-seq-of-map {:group-headers true} nested-seq-of-map)
   (normalize-seq-of-map {:group-headers [:entry/transport]} nested-seq-of-map)
   (normalize-seq-of-map {:group-headers true
@@ -256,5 +353,3 @@
                                                   [:exit/transport [:transport/name :transport/mode]]
                                                   :entry/datetime]
                                    :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
-
-

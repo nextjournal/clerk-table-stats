@@ -8,6 +8,8 @@
 
 ;; - [ ] Port some [stats](https://github.com/nextjournal/clerk/pull/156/files) stuff from Philippa in here?
 ;;    - [ ] compute-table-summary
+;; - [ ] ductile-table-viewer
+;;    - [ ] table-markup-viewer
 ;; - [ ] Think about how to query the remote data source for more information
 
 
