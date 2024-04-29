@@ -16,7 +16,10 @@
 ;; - [ ] Think about how to query the remote data source for more information
 ;; - [x] honey.sql issue with clerk show!
 
-
-(honey.sql/format
- {:select [:AlbumId :Bytes :Name :TrackID :UnitPrice]
-  :from :tracks})
+(def query-results
+  (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
+        ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
+    (with-open [conn (jdbc/get-connection ds)]
+      (clerk/table (jdbc/execute! conn (sql/format {:select [:AlbumId :Bytes :Name :TrackID
+                                                             :UnitPrice]
+                                                    :from :tracks}))))))
