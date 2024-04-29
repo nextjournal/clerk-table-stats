@@ -6,6 +6,8 @@
             [clojure.set :as set]
             [clojure.string :as str]))
 
+(clerk/eval-cljs-str "(prn (ns-name *ns*))(defn foobar [] 3)")
+
 (defn deep-merge [& maps]
   (letfn [(m [& xs]
             (if (some #(and (map? %) (not (record? %))) xs)
@@ -190,7 +192,7 @@
                                     (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
                                     (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                     title (assoc :title title))
-                                  [:div v]
+                                  [:div v (str (nextjournal.clerk-table-stats/foobar))]
                                   #_(when-let [[component choices-or-label :as filter] (get filters k)]
                                       (case component
                                         :checkbox (let [selected (get-in @!expanded-at [:filters k] false)]
