@@ -426,7 +426,10 @@
                                                                                                                (set/rename-keys {:page-size :nextjournal/page-size}))
                                                                                                            (select-keys wrapped-value [:nextjournal/page-size]))
                                                                 ;; TODO: insert stats rows here
-                                                                (map (partial viewer/with-viewer table-row-viewer) rows)))
+                                                                (cons
+                                                                 ;; just repeated the first row here
+                                                                 (viewer/with-viewer table-row-viewer (first rows))
+                                                                 (map (partial viewer/with-viewer table-row-viewer) rows))))
                                              head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
              (-> wrapped-value
                  viewer/mark-presented
