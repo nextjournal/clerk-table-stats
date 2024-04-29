@@ -36,7 +36,7 @@
                                        (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
                                        (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                        title (assoc :title title))
-                                     [:div v (str (nextjournal.clerk-table-stats/foobar))]
+                                     [:div v]
                                      #_(when-let [[component choices-or-label :as filter] (get filters k)]
                                          (case component
                                            :checkbox (let [selected (get-in @!expanded-at [:filters k] false)]
