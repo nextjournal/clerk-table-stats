@@ -4,7 +4,8 @@
   (:require [nextjournal.clerk :as clerk]
             [nextjournal.clerk.viewer :as viewer]
             [clojure.set :as set]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.walk :as walk]))
 
 (def table-head-viewer-fn
   '(fn table-head-viewer [header-row {:as opts :keys [path]}]
@@ -42,7 +43,7 @@
                 sub-headers))])))
 
 (def table-col-bars
-  '(defn table-col-bars [{:keys [col-type category-count distribution width height]}]
+  '(fn table-col-bars [{:keys [col-type category-count distribution width height]}]
      (r/with-let [selected-bar (r/atom nil)]
        (let [width 140
              height 30
@@ -92,7 +93,7 @@
              (str "(" category-count " categories)"))]]))))
 
 (def table-col-histogram
-  '(defn table-col-histogram [{:keys [col-type distribution width height]}]
+  '(fn table-col-histogram [{:keys [col-type distribution width height]}]
      (r/with-let [!selected-bar (r/atom nil)
                   fmt (goog.i18n.NumberFormat. (j/get-in goog.i18n.NumberFormat [:Format :COMPACT_SHORT]))]
        (let [max (:count (apply max-key :count distribution))
@@ -150,7 +151,7 @@
               [:div.absolute.left-0.top-0 (.format fmt from)]
               [:div.absolute.right-0.top-0 (.format fmt to)]])]]))))
 
-(def table-summary-sample
+#_(def table-summary-sample
   '(defn table-summary-sample [{:keys [continuous?]}]
      (if continuous?
        {:continuous? continuous?
@@ -223,11 +224,13 @@
                         :percentage 0.25}]})))
 
 (def table-col-summary
-  '(defn table-col-summary [{:as summary :keys [continuous?]}]
-     (let [summary (assoc summary :width 140 :height 30)]
-       (if continuous?
-         [table-col-histogram summary]
-         [table-col-bars summary]))))
+  (walk/postwalk-replace {'table-col-histogram table-col-histogram
+                          'table-col-bars table-col-bars}
+                         '(defn table-col-summary [{:as summary :keys [continuous?]}]
+                            (let [summary (assoc summary :width 140 :height 30)]
+                              (if continuous?
+                                [table-col-histogram summary]
+                                [table-col-bars summary])))))
 
 (defn deep-merge [& maps]
   (letfn [(m [& xs]
@@ -404,7 +407,7 @@
                            (nextjournal.clerk.render/inspect-presented opts cell)]))
                        row))})
 
-(def ductile-table-viewer
+(def table-viewer
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
@@ -422,6 +425,7 @@
                                                                                                                (select-keys [:page-size])
                                                                                                                (set/rename-keys {:page-size :nextjournal/page-size}))
                                                                                                            (select-keys wrapped-value [:nextjournal/page-size]))
+                                                                ;; TODO: insert stats rows here
                                                                 (map (partial viewer/with-viewer table-row-viewer) rows)))
                                              head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
              (-> wrapped-value
@@ -432,7 +436,7 @@
 
 (viewer/reset-viewers! :default
                        (viewer/add-viewers (viewer/get-default-viewers)
-                                           [ductile-table-viewer]))
+                                           [table-viewer]))
 
 {::clerk/visibility {:code :hide :result :show}}
 
