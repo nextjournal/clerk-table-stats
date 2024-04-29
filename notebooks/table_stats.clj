@@ -14,7 +14,8 @@
 ;; - [ ] Port some [stats](https://github.com/nextjournal/clerk/pull/156/files) stuff from Philippa in here?
 ;;    - [ ] compute-table-summary
 ;; - [ ] Think about how to query the remote data source for more information
-;; - [ ] honey.sql issue with clerk show!
+;; - [x] honey.sql issue with clerk show!
+
 
 (honey.sql/format
  {:select [:AlbumId :Bytes :Name :TrackID :UnitPrice]
