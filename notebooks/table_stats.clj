@@ -5,7 +5,10 @@
             [honey.sql :as sql]))
 
 (comment
-  (clerk/serve! {}))
+  (clerk/serve! {})
+  (clerk/halt!)
+  (clerk/clear-cache!))
+
 
 ;; - [x] Port grouping/nesting feature from ductile
 ;; - [ ] Port some [stats](https://github.com/nextjournal/clerk/pull/156/files) stuff from Philippa in here?
@@ -13,14 +16,6 @@
 ;; - [ ] Think about how to query the remote data source for more information
 ;; - [ ] honey.sql issue with clerk show!
 
-;; ## SQL Queries
-(def query-results
-  (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
-        ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
-    (with-open [conn (jdbc/get-connection ds)]
-      (jdbc/execute! conn
-                     #_["SELECT AlbumId, Bytes, Name, TrackID, UnitPrice FROM tracks"]
-                     (sql/format {:select [:AlbumId :Bytes :Name :TrackID :UnitPrice]
-                                  :from :tracks})))))
-
-(clerk/table query-results)
+(honey.sql/format
+ {:select [:AlbumId :Bytes :Name :TrackID :UnitPrice]
+  :from :tracks})
