@@ -1,6 +1,6 @@
 (ns ^:nextjournal.clerk/no-cache table-stats
   (:require [nextjournal.clerk :as clerk]
-            [nextjournal.clerk-table-stats :as table-stats]
+            [nextjournal.clerk-table-stats] ;; loaded for side effects
             [next.jdbc :as jdbc]
             [honey.sql :as sql]))
 
