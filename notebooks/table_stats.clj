@@ -10,8 +10,8 @@
   (clerk/clear-cache!))
 
 ;; - [x] Port grouping/nesting feature from ductile
-;; - [ ] Port some [stats](https://github.com/nextjournal/clerk/pull/156/files) stuff from Philippa in here?
-;;    - [ ] compute-table-summary
+;; - [x] Port some [stats](https://github.com/nextjournal/clerk/pull/156/files) stuff from Philippa in here?
+;;    - [x] compute-table-summary
 ;; - [ ] Think about how to query the remote data source for more information
 ;; - [x] honey.sql issue with clerk show!
 
