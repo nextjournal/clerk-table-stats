@@ -7,41 +7,6 @@
             [clojure.string :as str]
             [clojure.walk :as walk]))
 
-(def table-head-viewer-fn
-  '(fn table-head-viewer [header-row {:as opts :keys [path]}]
-     (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
-           sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
-           sub-headers? (seq sub-headers)]
-       [:thead
-        (into [:tr.print:border-b-2.print:border-black]
-              (map-indexed (fn [index cell]
-                             (let [header-cell cell
-                                   nested? false]
-                               (let [v (cond
-                                         nested? (last header-cell)
-                                         (vector? header-cell) (first header-cell)
-                                         :else header-cell)
-                                     k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
-                                     title (when (or (string? v) (keyword? v) (symbol? v)) v)
-                                     {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
-                                 [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                                  (cond-> {:class (str
-                                                   "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                                   (when (and sub-headers? nested?) "first:border-l-0 ")
-                                                   (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
-                                    (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                                    (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
-                                    (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
-                                    title (assoc :title title))
-                                  [:div v]]))))
-              header-cells)
-        (when-not (empty? sub-headers)
-          (into [:tr.print:border-b-2.print:border-black]
-                (map-indexed (fn [idx cell]
-                               [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                                cell]))
-                sub-headers))])))
-
 (def table-col-bars
   '(fn table-col-bars [{:keys [col-type category-count distribution width height]}]
      (r/with-let [selected-bar (r/atom nil)]
@@ -152,76 +117,76 @@
               [:div.absolute.right-0.top-0 (.format fmt to)]])]]))))
 
 #_(def table-summary-sample
-  '(defn table-summary-sample [{:keys [continuous?]}]
-     (if continuous?
-       {:continuous? continuous?
-        :col-type "number"
-        :distribution [{:range [0 100000]
-                        :row-count 1
-                        :percentage 0.011}
-                       {:range [100000 200000]
-                        :row-count 16
-                        :percentage 0.18}
-                       {:range [200000 300000]
-                        :row-count 33
-                        :percentage 0.37}
-                       {:range [300000 400000]
-                        :row-count 22
-                        :percentage 0.25}
-                       {:range [400000 500000]
-                        :row-count 8
-                        :percentage 0.09}
-                       {:range [500000 600000]
-                        :row-count 3
-                        :percentage 0.034}
-                       {:range [600000 700000]
-                        :row-count 3
-                        :percentage 0.034}
-                       {:range [700000 800000]
-                        :row-count 1
-                        :percentage 0.011}
-                       {:range [800000 900000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [900000 1000000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [1000000 1100000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [1100000 1200000]
-                        :row-count 1
-                        :percentage 0.011}
-                       {:range [1200000 1300000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [1300000 1400000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [1400000 1500000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [1500000 1600000]
-                        :row-count 0
-                        :percentage 0.0}
-                       {:range [1600000 1700000]
-                        :row-count 1
-                        :percentage 0.011}]}
-       {:continuous? continuous?
-        :col-type "string"
-        :category-count 30
-        :distribution [{:label "For Those About To Rock (We Salute You)"
-                        :row-count 3
-                        :percentage 0.068}
-                       {:label "Balls to the Wall"
-                        :row-count 2
-                        :percentage 0.045}
-                       {:label :unique
-                        :row-count 28
-                        :percentage 0.636}
-                       {:label :empty
-                        :row-count 11
-                        :percentage 0.25}]})))
+    '(defn table-summary-sample [{:keys [continuous?]}]
+       (if continuous?
+         {:continuous? continuous?
+          :col-type "number"
+          :distribution [{:range [0 100000]
+                          :row-count 1
+                          :percentage 0.011}
+                         {:range [100000 200000]
+                          :row-count 16
+                          :percentage 0.18}
+                         {:range [200000 300000]
+                          :row-count 33
+                          :percentage 0.37}
+                         {:range [300000 400000]
+                          :row-count 22
+                          :percentage 0.25}
+                         {:range [400000 500000]
+                          :row-count 8
+                          :percentage 0.09}
+                         {:range [500000 600000]
+                          :row-count 3
+                          :percentage 0.034}
+                         {:range [600000 700000]
+                          :row-count 3
+                          :percentage 0.034}
+                         {:range [700000 800000]
+                          :row-count 1
+                          :percentage 0.011}
+                         {:range [800000 900000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [900000 1000000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [1000000 1100000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [1100000 1200000]
+                          :row-count 1
+                          :percentage 0.011}
+                         {:range [1200000 1300000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [1300000 1400000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [1400000 1500000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [1500000 1600000]
+                          :row-count 0
+                          :percentage 0.0}
+                         {:range [1600000 1700000]
+                          :row-count 1
+                          :percentage 0.011}]}
+         {:continuous? continuous?
+          :col-type "string"
+          :category-count 30
+          :distribution [{:label "For Those About To Rock (We Salute You)"
+                          :row-count 3
+                          :percentage 0.068}
+                         {:label "Balls to the Wall"
+                          :row-count 2
+                          :percentage 0.045}
+                         {:label :unique
+                          :row-count 28
+                          :percentage 0.636}
+                         {:label :empty
+                          :row-count 11
+                          :percentage 0.25}]})))
 
 (def table-col-summary
   (walk/postwalk-replace {'table-col-histogram table-col-histogram
@@ -231,6 +196,45 @@
                               (if continuous?
                                 [table-col-histogram summary]
                                 [table-col-bars summary])))))
+
+(def table-head-viewer-fn
+  (walk/postwalk-replace
+   {'table-col-summary table-col-summary}
+   '(fn table-head-viewer [header-row {:as opts :keys [path]}]
+      (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
+            sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
+            sub-headers? (seq sub-headers)]
+        [:thead
+         (into [:tr.print:border-b-2.print:border-black]
+               (map-indexed (fn [index cell]
+                              (let [header-cell cell
+                                    nested? false]
+                                (let [v (cond
+                                          nested? (last header-cell)
+                                          (vector? header-cell) (first header-cell)
+                                          :else header-cell)
+                                      k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
+                                      title (when (or (string? v) (keyword? v) (symbol? v)) v)
+                                      {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
+                                  [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                                   (cond-> {:class (str
+                                                    "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                                    (when (and sub-headers? nested?) "first:border-l-0 ")
+                                                    (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+                                     (and column-layout (column-layout k)) (assoc :style (column-layout k))
+                                     (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
+                                     (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
+                                     title (assoc :title title))
+                                   [:div v]
+                                   (when-let [summary (:summary opts)]
+                                     [table-col-summary (get summary v)])]))))
+               header-cells)
+         (when-not (empty? sub-headers)
+           (into [:tr.print:border-b-2.print:border-black]
+                 (map-indexed (fn [idx cell]
+                                [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                                 cell]))
+                 sub-headers))]))))
 
 (defn deep-merge [& maps]
   (letfn [(m [& xs]
@@ -353,8 +357,8 @@
 (defn fixed-size-bins [min-value max-value bin-count]
   (let [size (/ (- max-value min-value) bin-count)]
     (vec
-      (for [step (range (inc bin-count))]
-        (+ min-value (* size step))))))
+     (for [step (range (inc bin-count))]
+       (+ min-value (* size step))))))
 
 (defn binary-search [v target]
   (loop [low 0
@@ -379,13 +383,13 @@
                     ;; Remove trailing threshold number
                     (group-by #(->> % (binary-search (subvec thresholds 0 (dec (count thresholds)))) inc Math/abs dec)))]
     (map-indexed
-      (fn [i [group-min group-max]]
-        (let [group (or (groups i) [])
-              group-count (count group)]
-          {:range [group-min group-max]
-           :count group-count
-           :percentage (/ group-count xs-count)}))
-      (partition 2 1 thresholds))))
+     (fn [i [group-min group-max]]
+       (let [group (or (groups i) [])
+             group-count (count group)]
+         {:range [group-min group-max]
+          :count group-count
+          :percentage (/ group-count xs-count)}))
+     (partition 2 1 thresholds))))
 
 (comment
   (histogram [1 1 1 5 2 2 0 0 1 40 51 21])
@@ -521,7 +525,7 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (if-let [{:keys [head rows]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
+           (if-let [{:keys [head rows summary]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
              (-> wrapped-value
                  (assoc :nextjournal/viewer table-markup-viewer)
                  (update :nextjournal/width #(or % :wide))
@@ -529,7 +533,8 @@
                                                          :number-col? (into #{}
                                                                             (comp (map-indexed vector)
                                                                                   (keep #(when (number? (second %)) (first %))))
-                                                                            (not-empty (first rows)))})
+                                                                            (not-empty (first rows)))
+                                                         :summary summary})
                  (assoc :nextjournal/value (cond->> []
                                              (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                (select-keys [:page-size])
