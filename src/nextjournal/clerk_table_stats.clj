@@ -60,7 +60,12 @@
 (def table-col-histogram
   '(fn table-col-histogram [{:keys [col-type distribution width height]}]
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
-                             fmt nil #_(goog.i18n.NumberFormat. (j/get-in goog.i18n.NumberFormat [:Format :COMPACT_SHORT]))]
+                             fmt (fn [x]
+                                   (cond (and (>= x 1000) (< x 1000000))
+                                         (str (.toFixed (/ x 1000) 0) "K")
+                                         (>= x 1000000)
+                                         (str (.toFixed (/ x 1000000) 0) "M")
+                                         :else (str (.toFixed x 0))))]
        (let [max (:count (apply max-key :count distribution))
              last-index (dec (count distribution))
              from (-> distribution first :range first)
@@ -102,19 +107,19 @@
                     [:div.absolute.left-0.text-left.text-slate-500.dark:text-slate-400.font-normal.pointer-events-none
                      {:class "text-[12px] h-[24px] leading-[24px] -translate-x-full"
                       :style {:top height}}
-                     (first range) #_(.format fmt (first range))]
+                     (fmt (first range))]
                     [:div.absolute.right-0.text-right.text-slate-500.dark:text-slate-400.font-normal.pointer-events-none
                      {:class "text-[12px] h-[24px] leading-[24px] translate-x-full"
                       :style {:top height}}
-                     (last range) #_(.format fmt (last range))]])]))
+                     (fmt (last range))]])]))
             distribution))
           [:div.text-slate-500.dark:text-slate-400.font-normal.truncate
            {:class "text-[12px] h-[24px] leading-[24px] "
             :style {:width width}}
            (when-not @!selected-bar
              [:div.relative.pointer-events-none
-              [:div.absolute.left-0.top-0 from #_(.format fmt from)]
-              [:div.absolute.right-0.top-0 to #_(.format fmt to)]])]]))))
+              [:div.absolute.left-0.top-0 (fmt from)]
+              [:div.absolute.right-0.top-0 (fmt to)]])]]))))
 
 #_(def table-summary-sample
     '(defn table-summary-sample [{:keys [continuous?]}]
