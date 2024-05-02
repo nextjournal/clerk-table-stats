@@ -9,11 +9,28 @@
   (clerk/halt!)
   (clerk/clear-cache!))
 
-;; - [x] Port grouping/nesting feature from ductile
-;; - [x] Port some [stats](https://github.com/nextjournal/clerk/pull/156/files) stuff from Philippa in here?
-;;    - [x] compute-table-summary
-;; - [ ] Think about how to query the remote data source for more information
-;; - [x] honey.sql issue with clerk show!
+;; ## Research
+;; - [ ] Check out Obserable data call (SQL example)
+;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
+;; - [ ] API to provide your own `:schema,` such that clerk doesn't have to normalize all the data
+;; - [ ] check out how this would work with table cloth large columnar data sets
+;; - [ ] also with datomic qseq in ductile
+
+;; ## Concrete stuff to work on
+;; - [ ] Make filters work client side (check Obserable for example)
+;;   - [ ] By clicking on diagram
+;;   - [ ] Or by selecting values from column
+
+(def my-data
+  [{:category :foo :value 10}
+   {:category :bar :value 20}
+   {:category :foo :value 10}
+   {:category :bar :value 15}
+   {:category :bar :value 22}
+   {:value 12}])
+
+(clerk/table my-data)
+
 
 (def query-results
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
@@ -23,6 +40,11 @@
                                                              :UnitPrice]
                                                     :from :tracks
                                                     :join [:albums [:= :tracks.AlbumId :albums.AlbumId]]}))))))
+
+(def row-count
+  (jdbc/execute! {:dbtype "sqlite" :dbname "chinook.db"}
+                 (sql/format {:select [[[:count :*]]]
+                              :from :tracks})))
 
 (def nested-seq-of-map
   [{:ars/id "1"
