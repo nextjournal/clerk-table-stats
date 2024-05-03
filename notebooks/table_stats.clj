@@ -20,6 +20,7 @@
 ;; - [ ] Make filters work client side (check Obserable for example)
 ;;   - [ ] By clicking on diagram
 ;;   - [ ] Or by selecting values from column
+;;   - [ ] Scrubbing
 
 (def my-data
   [{:category :foo :value 10}
