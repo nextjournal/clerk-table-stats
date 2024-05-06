@@ -2,7 +2,8 @@
   (:require [nextjournal.clerk :as clerk]
             [nextjournal.clerk-table-stats] ;; loaded for side effects
             [next.jdbc :as jdbc]
-            [honey.sql :as sql]))
+            [honey.sql :as sql]
+            [tablecloth.api :as tc]))
 
 (comment
   (clerk/serve! {})
@@ -69,4 +70,14 @@
                                                   [:exit/transport [:transport/name :transport/mode]]
                                                   :entry/datetime]
                                    :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
+
+
+;; classic map of seq, columnar data
+(def DS (tc/dataset {:V1 (take 9 (cycle [1 2]))
+                     :V2 (range 1 10)
+                     :V3 (take 9 (cycle [0.5 1.0 1.5]))
+                     :V4 (take 9 (cycle ["A" "B" "C"]))
+                     :V5 (range)}))
+
+
 
