@@ -253,11 +253,16 @@
        (group-by first)
        (map (fn [[k paths]] (if (< 1 (count paths)) [k (mapv (comp first rest) paths)] k)))))
 
-(defn head->paths [head]
+(defn head->paths
+  [head]
   (mapcat (fn [k]
             (if (vector? k)
               (mapv #(vector (first k) %) (last k))
               [[k]])) head))
+
+(comment
+  (head->paths '(:a :b)) ;;=> '([:a] [:b])
+  )
 
 (defn ->ordered-paths [order paths]
   (->> paths
@@ -295,7 +300,6 @@
          visible-paths (cond->> ordered-paths
                          (seq hidden-paths) (->visible-paths hidden-paths))
          schema (paths->head ordered-paths)]
-     (def s schema)
      {:schema schema
       :paths ordered-paths
       :hidden-paths hidden-paths
@@ -326,12 +330,15 @@
          visible-paths (cond->> ordered-paths
                          (seq hidden-paths) (->visible-paths hidden-paths))
          schema (paths->head ordered-paths)]
-     (def s1 schema)
-     {:schema schema
+     {:schema schema ;; schema here is just a seq of keywords, e.g. (:a :b)
       :paths ordered-paths
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
-      :rows (map-indexed (fn [i _] (map (fn [[k1 k2]]
+      ;; TODO: we should preserve the columns?
+      :cols m
+      #_#_:rows (map-indexed (fn [i _] (map (fn [[k1 k2]]
+                                          (def k1 k1)
+                                          (def k2 k2)
                                           (let [v (nth (get m k1) i viewer/missing-pred)]
                                             (if k2
                                               (get v k2)
@@ -440,13 +447,13 @@
 (defn transpose [rows]
   (apply mapv vector rows))
 
-(defn compute-table-summary [{:as data :keys [head rows]}]
+(defn compute-table-summary [{:as data :keys [head rows cols]}]
   (cond-> data
     head (assoc :summary
                 (reduce (fn [acc [k xs]]
                           (assoc acc k (compute-col-summary xs)))
                         {}
-                        (->> rows transpose (map vector head))))))
+                        (or cols (->> rows transpose (map vector head)))))))
 
 (comment
   (map? x)
@@ -462,16 +469,15 @@
   ;; normalize map of seq is very expensive on a table cloth data set since it
   ;; converts it into rows rather than keeping the columns
   ;; the goal should be to preserve the data source, so we don't have to convert the entire thing
+  ;; note that compute-table-summary transposes the rows again
   )
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([opts data]
-   (def x data)
-   (def t? (and (sequential? data) (map? (first data))))
    (->> (cond
           (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
-          ;; tablecloth goes into here
+          ;; tablecloth goes into here, since it's a map-of-seq, AKA columnar
           (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
           (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
           (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
