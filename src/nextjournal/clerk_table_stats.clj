@@ -314,6 +314,8 @@
   ([{:keys [column-order hide-columns group-headers schema]} m]
    (let [paths (if schema
                  (head->paths schema)
+                 ;; why not just take the keys of the map here?
+                 ;; That is basically what happens though when you don't use group-headers
                  (->> m
                       (mapcat (fn [[k s]]
                                 (if (and group-headers (map? (first s)))
@@ -345,12 +347,6 @@
                                               v)))
                                         visible-paths))
                          (val (apply max-key (comp viewer/count-bounded val) m)))})))
-
-(defn use-headers [s]
-  (let [{:as table :keys [rows]} (viewer/normalize-seq-of-seq s)]
-    (-> table
-        (assoc :head (first rows))
-        (update :rows rest))))
 
 (defn classified-type [x]
   (cond
@@ -559,7 +555,8 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (if-let [{:keys [head rows summary]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
+           (if-let [{:keys [head rows cols summary]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
+             ;; TODO: continue here tomorrow
              (-> wrapped-value
                  (assoc :nextjournal/viewer table-markup-viewer)
                  (update :nextjournal/width #(or % :wide))
