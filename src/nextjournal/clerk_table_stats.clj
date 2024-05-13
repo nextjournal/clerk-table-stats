@@ -448,6 +448,22 @@
                         {}
                         (->> rows transpose (map vector head))))))
 
+(comment
+  (map? x)
+  (sequential? x)
+  (type x)
+  (first (first x))
+  (supers (class x))
+  (and (sequential? x) (map? (first x)))
+  
+  (sequential? (first (vals x)))
+
+  (normalize-map-of-seq nil x)
+  ;; normalize map of seq is very expensive on a table cloth data set since it
+  ;; converts it into rows rather than keeping the columns
+  ;; the goal should be to preserve the data source, so we don't have to convert the entire thing
+  )
+
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([opts data]
@@ -455,6 +471,7 @@
    (def t? (and (sequential? data) (map? (first data))))
    (->> (cond
           (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
+          ;; tablecloth goes into here
           (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
           (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
           (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
