@@ -11,7 +11,7 @@
   (clerk/clear-cache!))
 
 ;; ## Research
-;; - [ ] Check out Obserable data call (SQL example)
+;; - [ ] Check out Observable data call (SQL example)
 ;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
 ;; - [ ] API to provide your own `:schema,` such that clerk doesn't have to normalize all the data
 ;; - [ ] check out how this would work with table cloth large columnar data sets
@@ -81,3 +81,4 @@
 
 
 
+(tc/dataset [{:a 1} {:a 1 :b 2}])

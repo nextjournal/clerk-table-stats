@@ -293,8 +293,10 @@
                          (seq column-order) (->ordered-paths (head->paths column-order)))
          hidden-paths (if (seq hide-columns) (set (head->paths hide-columns)) #{})
          visible-paths (cond->> ordered-paths
-                         (seq hidden-paths) (->visible-paths hidden-paths))]
-     {:schema (paths->head ordered-paths)
+                         (seq hidden-paths) (->visible-paths hidden-paths))
+         schema (paths->head ordered-paths)]
+     (def s schema)
+     {:schema schema
       :paths ordered-paths
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
@@ -322,8 +324,10 @@
                          (seq column-order) (->ordered-paths (head->paths column-order)))
          hidden-paths (if (seq hide-columns) (set (head->paths hide-columns)) #{})
          visible-paths (cond->> ordered-paths
-                         (seq hidden-paths) (->visible-paths hidden-paths))]
-     {:schema (paths->head ordered-paths)
+                         (seq hidden-paths) (->visible-paths hidden-paths))
+         schema (paths->head ordered-paths)]
+     (def s1 schema)
+     {:schema schema
       :paths ordered-paths
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
@@ -447,6 +451,8 @@
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([opts data]
+   (def x data)
+   (def t? (and (sequential? data) (map? (first data))))
    (->> (cond
           (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
           (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
