@@ -58,7 +58,7 @@
              (str "(" category-count " categories)"))]]))))
 
 (def table-col-histogram
-  '(fn table-col-histogram [{:keys [col-type distribution width height]}]
+  '(fn table-col-histogram [{:keys [col-type distribution width height]} {:keys [table-state]}]
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
                              fmt (fn [x]
                                    (cond (and (>= x 1000) (< x 1000000))
@@ -86,7 +86,12 @@
                     last? (= i last-index)]
                 [:div.relative.group
                  {:on-mouse-enter #(reset! !selected-bar bar)
-                  :on-mouse-leave #(reset! !selected-bar nil)
+                  :on-mouse-leave #(do
+                                     (prn :ono)
+                                     (reset! !selected-bar nil))
+                  :on-click #(do
+                               (prn :dude)
+                               (swap! table-state update :filter conj :dude))
                   :style {:width bar-width
                           :height (+ height 24)}}
                  [:div.w-full.flex.items-end
@@ -121,92 +126,19 @@
               [:div.absolute.left-0.top-0 (fmt from)]
               [:div.absolute.right-0.top-0 (fmt to)]])]]))))
 
-#_(def table-summary-sample
-    '(defn table-summary-sample [{:keys [continuous?]}]
-       (if continuous?
-         {:continuous? continuous?
-          :col-type "number"
-          :distribution [{:range [0 100000]
-                          :row-count 1
-                          :percentage 0.011}
-                         {:range [100000 200000]
-                          :row-count 16
-                          :percentage 0.18}
-                         {:range [200000 300000]
-                          :row-count 33
-                          :percentage 0.37}
-                         {:range [300000 400000]
-                          :row-count 22
-                          :percentage 0.25}
-                         {:range [400000 500000]
-                          :row-count 8
-                          :percentage 0.09}
-                         {:range [500000 600000]
-                          :row-count 3
-                          :percentage 0.034}
-                         {:range [600000 700000]
-                          :row-count 3
-                          :percentage 0.034}
-                         {:range [700000 800000]
-                          :row-count 1
-                          :percentage 0.011}
-                         {:range [800000 900000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [900000 1000000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1000000 1100000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1100000 1200000]
-                          :row-count 1
-                          :percentage 0.011}
-                         {:range [1200000 1300000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1300000 1400000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1400000 1500000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1500000 1600000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1600000 1700000]
-                          :row-count 1
-                          :percentage 0.011}]}
-         {:continuous? continuous?
-          :col-type "string"
-          :category-count 30
-          :distribution [{:label "For Those About To Rock (We Salute You)"
-                          :row-count 3
-                          :percentage 0.068}
-                         {:label "Balls to the Wall"
-                          :row-count 2
-                          :percentage 0.045}
-                         {:label :unique
-                          :row-count 28
-                          :percentage 0.636}
-                         {:label :empty
-                          :row-count 11
-                          :percentage 0.25}]})))
-
 (def table-col-summary
   (walk/postwalk-replace {'table-col-histogram table-col-histogram
                           'table-col-bars table-col-bars}
-                         '(defn table-col-summary [{:as summary :keys [continuous?]}]
+                         '(defn table-col-summary [{:as summary :keys [continuous?]} opts]
                             (let [summary (assoc summary :width 140 :height 30)]
                               (if continuous?
-                                [table-col-histogram summary]
-                                [table-col-bars summary])))))
+                                [table-col-histogram summary opts]
+                                [table-col-bars summary opts])))))
 
 (def table-head-viewer-fn
   (walk/postwalk-replace
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
-      (prn :table-state table-state (hash table-state))
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
             sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
             sub-headers? (seq sub-headers)]
@@ -233,7 +165,7 @@
                                      title (assoc :title title))
                                    [:div v]
                                    (when-let [summary (:summary opts)]
-                                     [table-col-summary (get summary v)])]))))
+                                     [table-col-summary (get summary v) {:table-state table-state}])]))))
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
@@ -462,6 +394,7 @@
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
+                    [:pre (pr-str @table-state)]
                     (into
                      [:table.w-full]
                      (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
