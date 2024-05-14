@@ -556,11 +556,10 @@
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
            (if-let [{:keys [head rows cols summary]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
-             ;; TODO: continue here tomorrow
              (-> wrapped-value
                  (assoc :nextjournal/viewer table-markup-viewer)
                  (update :nextjournal/width #(or % :wide))
-                 (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
+                 (update :nextjournal/render-opts merge {:num-cols (count (or head cols (first rows)))
                                                          :number-col? (into #{}
                                                                             (comp (map-indexed vector)
                                                                                   (keep #(when (number? (second %)) (first %))))
