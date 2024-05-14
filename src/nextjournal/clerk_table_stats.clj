@@ -473,7 +473,7 @@
 
 (def table-row-viewer
   {:render-fn '(fn [row {:as opts :keys [path number-col? state]}]
-                 (prn :state state)
+                 (prn :state state (hash state))
                  (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                         {:class (str "print:border-b-[1px] "
                                      (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
@@ -500,7 +500,7 @@
                                                                                   (keep #(when (number? (second %)) (first %))))
                                                                             (not-empty (first rows)))
                                                          :summary summary
-                                                         :state '(atom #{1 2 3})})
+                                                         :state (viewer/->viewer-eval '(atom #{1 2 3}))})
                  (assoc :nextjournal/value (cond->> []
                                              (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                (select-keys [:page-size])
