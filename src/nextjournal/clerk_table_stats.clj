@@ -205,7 +205,8 @@
 (def table-head-viewer-fn
   (walk/postwalk-replace
    {'table-col-summary table-col-summary}
-   '(fn table-head-viewer [header-row {:as opts :keys [path]}]
+   '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
+      (prn :table-state table-state (hash table-state))
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
             sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
             sub-headers? (seq sub-headers)]
@@ -453,20 +454,18 @@
           (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
           (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
           :else nil)
-       compute-table-summary
-       (assoc :state (viewer/->viewer-eval '(do
-                                              (prn :viewer-eval-atom!)
-                                              (atom #{1 2 3})))))))
+       compute-table-summary)))
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
-                 [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
-                  {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
-                  ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
-                  (into
-                   [:table.w-full]
-                   (nextjournal.clerk.render/inspect-children opts)
-                   head+body)])})
+                 (let [table-state (reagent.core/atom {:filter #{}})]
+                   [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
+                    {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
+                    ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
+                    (into
+                     [:table.w-full]
+                     (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
+                     head+body)]))})
 
 (def table-head-viewer
   {:render-fn table-head-viewer-fn})
@@ -475,8 +474,7 @@
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:render-fn '(fn [row {:as opts :keys [path number-col? state]}]
-                 (prn :>state state (hash state))
+  {:render-fn '(fn [row {:as opts :keys [path number-col?]}]
                  (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                         {:class (str "print:border-b-[1px] "
                                      (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
@@ -489,7 +487,6 @@
                        row))})
 
 (def table-viewer
-  ;; TODO: how to preserve some selected state over the whole table, which consists of several render-fns?
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
