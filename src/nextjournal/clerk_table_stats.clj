@@ -472,7 +472,8 @@
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:render-fn '(fn [row {:as opts :keys [path number-col?]}]
+  {:render-fn '(fn [row {:as opts :keys [path number-col? state]}]
+                 (prn :state state)
                  (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                         {:class (str "print:border-b-[1px] "
                                      (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
@@ -485,6 +486,7 @@
                        row))})
 
 (def table-viewer
+  ;; TODO: how to preserve some selected state over the whole table, which consists of several render-fns?
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
@@ -497,7 +499,8 @@
                                                                             (comp (map-indexed vector)
                                                                                   (keep #(when (number? (second %)) (first %))))
                                                                             (not-empty (first rows)))
-                                                         :summary summary})
+                                                         :summary summary
+                                                         :state '(atom #{1 2 3})})
                  (assoc :nextjournal/value (cond->> []
                                              (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                (select-keys [:page-size])

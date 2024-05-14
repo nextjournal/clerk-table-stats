@@ -21,6 +21,7 @@
 ;; ## Concrete stuff to work on
 ;; - [ ] Make filters work client side (check Obserable for example)
 ;;   - [ ] By clicking on diagram
+;;   -  [ ] How to preserve state over multiple `:render-fn`, perhaps via `:render-opts`?
 ;;   - [ ] Or by selecting values from column
 ;;   - [ ] Scrubbing
 
