@@ -447,13 +447,16 @@
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([opts data]
-   (->> (cond
+   (-> (cond
           (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
           (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
           (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
           (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
           :else nil)
-        compute-table-summary)))
+       compute-table-summary
+       (assoc :state (viewer/->viewer-eval '(do
+                                              (prn :viewer-eval-atom!)
+                                              (atom #{1 2 3})))))))
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
@@ -473,7 +476,7 @@
 
 (def table-row-viewer
   {:render-fn '(fn [row {:as opts :keys [path number-col? state]}]
-                 (prn :state state (hash state))
+                 (prn :>state state (hash state))
                  (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                         {:class (str "print:border-b-[1px] "
                                      (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
@@ -490,7 +493,7 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (if-let [{:keys [head rows summary]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
+           (if-let [{:keys [head rows summary state]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
              (-> wrapped-value
                  (assoc :nextjournal/viewer table-markup-viewer)
                  (update :nextjournal/width #(or % :wide))
@@ -500,7 +503,7 @@
                                                                                   (keep #(when (number? (second %)) (first %))))
                                                                             (not-empty (first rows)))
                                                          :summary summary
-                                                         :state (viewer/->viewer-eval '(atom #{1 2 3}))})
+                                                         :state state})
                  (assoc :nextjournal/value (cond->> []
                                              (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                (select-keys [:page-size])
