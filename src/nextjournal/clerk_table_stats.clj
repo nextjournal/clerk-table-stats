@@ -465,48 +465,6 @@
                    (nextjournal.clerk.render/inspect-children opts)
                    head+body)])})
 
-#_(defn header-cell [{:keys [sub-headers? nested? header-cell index opts]}]
-    (let [v (cond
-              nested? (last header-cell)
-              (vector? header-cell) (first header-cell)
-              :else header-cell)
-          k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
-          title (when (or (string? v) (keyword? v) (symbol? v)) v)
-          {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
-      [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-       (cond-> {:class (str
-                        "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                        (when (and sub-headers? nested?) "first:border-l-0 ")
-                        (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
-         (and column-layout (column-layout k)) (assoc :style (column-layout k))
-         (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
-         (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
-         title (assoc :title title))
-       [:div (get translated-keys v (trk v))]
-       (when-let [[component choices-or-label :as filter] (get filters k)]
-         (case component
-           :checkbox (let [selected (get-in @!expanded-at [:filters k] false)]
-                       [:label.w-full.flex.items-center.gap-1.justify-center {:style {:height 30}}
-                        [:input {:type :checkbox
-                                 :on-change (fn []
-                                              (swap! !expanded-at update-in [:filters v] not)
-                                              (update-filters! k filter (not selected)))
-                                 :checked (or selected false)}] choices-or-label])
-           :multi-select (let [selected (get-in @!expanded-at [:filters k] #{})]
-                           [multi-select {:choices choices-or-label
-                                          :selected-value selected
-                                          :show-selected? true
-                                          :placeholder "Filter…"
-                                          :on-change (fn [val]
-                                                       (let [new-selected (conj selected val)]
-                                                         (swap! !expanded-at assoc-in [:filters k] new-selected)
-                                                         (update-filters! k filter new-selected)))
-                                          :on-remove (fn [val]
-                                                       (let [new-selected (disj selected val)]
-                                                         (swap! !expanded-at assoc-in [:filters k] new-selected)
-                                                         (update-filters! k filter new-selected)))}])))]))
-
-
 (def table-head-viewer
   {:render-fn table-head-viewer-fn})
 

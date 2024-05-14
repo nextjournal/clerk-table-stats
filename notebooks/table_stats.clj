@@ -30,7 +30,7 @@
    {:category :foo :value 10}
    {:category :bar :value 15}
    {:category :bar :value 22}
-   {:value 12}])
+   {:category :baz :value 12}])
 
 (clerk/table my-data)
 
