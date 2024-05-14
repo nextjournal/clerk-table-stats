@@ -2,7 +2,8 @@
   (:require [nextjournal.clerk :as clerk]
             [nextjournal.clerk-table-stats] ;; loaded for side effects
             [next.jdbc :as jdbc]
-            [honey.sql :as sql]))
+            [honey.sql :as sql]
+            [tablecloth.api :as tc]))
 
 (comment
   (clerk/serve! {})
@@ -10,10 +11,11 @@
   (clerk/clear-cache!))
 
 ;; ## Research
-;; - [ ] Check out Obserable data call (SQL example)
+;; - [ ] Check out Observable data call (SQL example)
 ;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
 ;; - [ ] API to provide your own `:schema,` such that clerk doesn't have to normalize all the data
 ;; - [ ] check out how this would work with table cloth large columnar data sets
+;;   - [ ] don't know how skipping normalization buys us anything since you need to transpose the data anyway when sending it to the client to render it as a table, so what problem are we solving again?, see `table-cloth` branch
 ;; - [ ] also with datomic qseq in ductile
 
 ;; ## Concrete stuff to work on
@@ -70,3 +72,14 @@
                                                   :entry/datetime]
                                    :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
 
+
+;; classic map of seq, columnar data
+(def DS (tc/dataset {:V1 (take 9 (cycle [1 2]))
+                     :V2 (range 1 10)
+                     :V3 (take 9 (cycle [0.5 1.0 1.5]))
+                     :V4 (take 9 (cycle ["A" "B" "C"]))
+                     :V5 (range)}))
+
+
+
+(tc/dataset [{:a 1} {:a 1 :b 2}])
