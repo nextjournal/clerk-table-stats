@@ -15,7 +15,7 @@
 ;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
 ;; - [ ] API to provide your own `:schema,` such that clerk doesn't have to normalize all the data
 ;; - [ ] check out how this would work with table cloth large columnar data sets
-;;   - [ ] don't know how skipping normalization buys us anything since you need to transpose the data anyway when sending it to the client to render it as a table, so what problem are we solving again?
+;;   - [ ] don't know how skipping normalization buys us anything since you need to transpose the data anyway when sending it to the client to render it as a table, so what problem are we solving again?, see `table-cloth` branch
 ;; - [ ] also with datomic qseq in ductile
 
 ;; ## Concrete stuff to work on
