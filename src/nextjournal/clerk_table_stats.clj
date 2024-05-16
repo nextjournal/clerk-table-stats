@@ -89,16 +89,16 @@
                   :on-mouse-leave #(do
                                      (prn :ono)
                                      (reset! !selected-bar nil))
-                  :on-click #(do
-                               (prn :dude)
-                               (swap! table-state update :filter conj :dude))
                   :style {:width bar-width
                           :height (+ height 24)}}
                  [:div.w-full.flex.items-end
                   {:style {:height height}}
                   [:div.w-full.relative
-                   {:style {:height (* (/ row-count max) height)}
-                    :class "bg-indigo-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
+                   {:on-click #(do
+                                 (prn :dude)
+                                 (swap! table-state update :filter conj :dude))
+                    :style {:height (* (/ row-count max) height)}
+                    :class "bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
                    (when-not last?
                      [:div.absolute.top-0.right-0.bottom-0
                       {:class "bg-white dark:bg-black w-[1px]"}])]]
@@ -390,7 +390,7 @@
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
-                 (let [table-state (reagent.core/atom {:filter #{}})]
+                 (reagent.core/with-let [table-state (reagent.core/atom {:filter #{}})]
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
@@ -407,7 +407,7 @@
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:render-fn '(fn [row {:as opts :keys [path number-col?]}]
+  {:render-fn '(fn [row {:as opts :keys [path number-col? table-state]}]
                  (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                         {:class (str "print:border-b-[1px] "
                                      (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
@@ -416,6 +416,9 @@
                           [:td.px-4.py-2.text-sm.border-r.last:border-r-0
                            {:class (str "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
                                         (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
+                           (let [v (nextjournal.clerk/->value cell)
+                                 filter (some-> table-state deref)]
+                             (prn :table-filterrr filter))
                            (nextjournal.clerk.render/inspect-presented opts cell)]))
                        row))})
 
