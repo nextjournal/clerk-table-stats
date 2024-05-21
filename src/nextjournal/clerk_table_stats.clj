@@ -87,16 +87,14 @@
                     last? (= i last-index)]
                 [:div.relative.group
                  {:on-mouse-enter #(reset! !selected-bar bar)
-                  :on-mouse-leave #(do
-                                     (prn :ono)
-                                     (reset! !selected-bar nil))
+                  :on-mouse-leave #(reset! !selected-bar nil)
                   :style {:width bar-width
                           :height (+ height 24)}}
                  [:div.w-full.flex.items-end
                   {:style {:height height}}
                   [:div.w-full.relative
                    {:on-click #(do
-                                 (swap! table-state update :filter update idx (fnil conj #{}) :dude))
+                                 (swap! table-state update :filter assoc idx [:range range]))
                     :style {:height (* (/ row-count max) height)}
                     :class "bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
                    (when-not last?
@@ -408,20 +406,28 @@
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:render-fn '(fn [row {:as opts :keys [path number-col? table-state]}]
-                 (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
-                        {:class (str "print:border-b-[1px] "
-                                     (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
-                       (map-indexed
-                        (fn [idx cell]
-                          [:td.px-4.py-2.text-sm.border-r.last:border-r-0
-                           {:class (str "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                        (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
-                           (let [v (nextjournal.clerk/->value cell)
-                                 filter (some-> table-state deref)]
-                             (prn :table-filterrr filter))
-                           (nextjournal.clerk.render/inspect-presented opts cell)]))
-                       row))})
+  {:render-fn '(let []
+                 (fn [row {:as opts :keys [path number-col? table-state]}]
+                   (let [
+                         filter (some-> table-state deref :filter)
+                         ks (keys filter)
+                         vs (some #(let [col-filter (get filter %)
+                                        col-value (nextjournal.clerk/->value (nth row %))]
+                                    (when (= :range (first col-filter))
+                                      (let [[_ [from to]] col-filter]
+                                        (<= from col-value to)))) ks)
+                         ]
+                     (when vs
+                       (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
+                              {:class (str "print:border-b-[1px] "
+                                           (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
+                             (map-indexed
+                              (fn [idx cell]
+                                [:td.px-4.py-2.text-sm.border-r.last:border-r-0
+                                 {:class (str "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                              (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
+                                 (nextjournal.clerk.render/inspect-presented opts cell)]))
+                             row)))))})
 
 (def table-viewer
   (assoc viewer/table-viewer
