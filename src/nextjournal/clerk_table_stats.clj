@@ -73,8 +73,6 @@
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
          [:div
-          [:pre (pr-str @!filtered-bar)
-           ]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -86,8 +84,9 @@
            (map-indexed
             (fn [i {:as bar row-count :count :keys [range]}]
               (let [bar-width (/ width (count distribution))
+                    filtered? (= @!filtered-bar bar)
                     selected? (or (= @!selected-bar bar)
-                                  (= @!filtered-bar bar))
+                                  filtered?)
                     last? (= i last-index)]
                 [:div.relative.group
                  {:on-mouse-enter #(reset! !selected-bar bar)
@@ -102,10 +101,14 @@
                                                         (if (= filtered-bar bar)
                                                           nil
                                                           bar)))
-                                 (swap! table-state update :filter assoc idx [:range range]))
+                                 (if filtered?
+                                   (swap! table-state update :filter dissoc idx)
+                                   (swap! table-state update :filter assoc idx [:range range])))
                     :style {:height (* (/ row-count max) height)}
-                    :class (cond-> ["bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]
-                             selected? (conj "bg-indigo-400"))}
+                    :class (let [css ["group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
+                             (if selected?
+                               (conj "bg-indigo-400")
+                               (conj css "bg-red-200")))}
                    (when-not last?
                      [:div.absolute.top-0.right-0.bottom-0
                       {:class "bg-white dark:bg-black w-[1px]"}])]]
@@ -420,12 +423,13 @@
                    (let [
                          filter (some-> table-state deref :filter)
                          ks (keys filter)
-                         vs (some #(let [col-filter (get filter %)
-                                        col-value (nextjournal.clerk/->value (nth row %))]
-                                    (when (= :range (first col-filter))
-                                      (let [[_ [from to]] col-filter]
-                                        (<= from col-value to)))) ks)
-                         ]
+                         vs
+                         (or (empty? ks)
+                             (some #(let [col-filter (get filter %)
+                                          col-value (nextjournal.clerk/->value (nth row %))]
+                                      (when (= :range (first col-filter))
+                                        (let [[_ [from to]] col-filter]
+                                          (<= from col-value to)))) ks))]
                      (when vs
                        (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                               {:class (str "print:border-b-[1px] "
