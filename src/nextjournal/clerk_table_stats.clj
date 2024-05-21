@@ -61,6 +61,7 @@
   '(fn table-col-histogram [{:keys [col-type distribution width height] :as col} {:keys [table-state idx]}]
      (prn :col (keys col))
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
+                             !filtered-bar (reagent.core/atom nil)
                              fmt (fn [x]
                                    (cond (and (>= x 1000) (< x 1000000))
                                          (str (.toFixed (/ x 1000) 0) "K")
@@ -72,6 +73,8 @@
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
          [:div
+          [:pre (pr-str @!filtered-bar)
+           ]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -83,7 +86,8 @@
            (map-indexed
             (fn [i {:as bar row-count :count :keys [range]}]
               (let [bar-width (/ width (count distribution))
-                    selected? (= @!selected-bar bar)
+                    selected? (or (= @!selected-bar bar)
+                                  (= @!filtered-bar bar))
                     last? (= i last-index)]
                 [:div.relative.group
                  {:on-mouse-enter #(reset! !selected-bar bar)
@@ -94,9 +98,14 @@
                   {:style {:height height}}
                   [:div.w-full.relative
                    {:on-click #(do
+                                 (swap! !filtered-bar (fn [filtered-bar]
+                                                        (if (= filtered-bar bar)
+                                                          nil
+                                                          bar)))
                                  (swap! table-state update :filter assoc idx [:range range]))
                     :style {:height (* (/ row-count max) height)}
-                    :class "bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
+                    :class (cond-> ["bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]
+                             selected? (conj "bg-indigo-400"))}
                    (when-not last?
                      [:div.absolute.top-0.right-0.bottom-0
                       {:class "bg-white dark:bg-black w-[1px]"}])]]
