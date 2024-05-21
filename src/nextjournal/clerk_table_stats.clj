@@ -58,7 +58,8 @@
              (str "(" category-count " categories)"))]]))))
 
 (def table-col-histogram
-  '(fn table-col-histogram [{:keys [col-type distribution width height]} {:keys [table-state]}]
+  '(fn table-col-histogram [{:keys [col-type distribution width height] :as col} {:keys [table-state idx]}]
+     (prn :col (keys col))
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
                              fmt (fn [x]
                                    (cond (and (>= x 1000) (< x 1000000))
@@ -95,7 +96,7 @@
                   {:style {:height height}}
                   [:div.w-full.relative
                    {:on-click #(do
-                                 (swap! table-state update :filter update i (fnil conj #{}) :dude))
+                                 (swap! table-state update :filter update idx (fnil conj #{}) :dude))
                     :style {:height (* (/ row-count max) height)}
                     :class "bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
                    (when-not last?
@@ -164,7 +165,8 @@
                                      title (assoc :title title))
                                    [:div v]
                                    (when-let [summary (:summary opts)]
-                                     [table-col-summary (get summary v) {:table-state table-state}])]))))
+                                     [table-col-summary (get summary v) {:table-state table-state
+                                                                         :idx index}])]))))
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
