@@ -95,8 +95,7 @@
                   {:style {:height height}}
                   [:div.w-full.relative
                    {:on-click #(do
-                                 (prn :dude)
-                                 (swap! table-state update :filter conj :dude))
+                                 (swap! table-state update :filter update i (fnil conj #{}) :dude))
                     :style {:height (* (/ row-count max) height)}
                     :class "bg-red-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
                    (when-not last?
@@ -390,7 +389,7 @@
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
-                 (reagent.core/with-let [table-state (reagent.core/atom {:filter #{}})]
+                 (reagent.core/with-let [table-state (reagent.core/atom {:filter {}})]
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
