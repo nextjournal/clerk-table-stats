@@ -11,11 +11,15 @@
   (clerk/clear-cache!))
 
 ;; ## Research
-;; - [ ] Check out Observable data table cell (SQL example)
+
+;; - [x] Check out Observable data table cell (SQL example)
 ;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
-;; - [ ] API to provide your own `:schema,` such that clerk doesn't have to normalize all the data
+;; - [ ] API to provide your own `:schema` such that clerk doesn't have to normalize all the data
 ;; - [ ] check out how this would work with table cloth large columnar data sets
-;;   - [ ] don't know how skipping normalization buys us anything since you need to transpose the data anyway when sending it to the client to render it as a table, so what problem are we solving again?, see `table-cloth` branch
+;;   - [ ] skip mapcat stuff
+;;   - [ ] take 1000 like with clerk tableviewer
+;;   - [ ] should work with infinite seqs in map-of-seq
+
 ;; - [ ] also with datomic qseq in ductile
 
 ;; ## Concrete stuff to work on
@@ -24,6 +28,7 @@
 ;;   -  [ ] How to preserve state over multiple `:render-fn`, perhaps via `:render-opts`?
 ;;   - [ ] Or by selecting values from column
 ;;   - [ ] Scrubbing
+;;   - [ ] export filter code to be used as clerk option
 
 (def my-data
   [{:category :foo :value 10}
