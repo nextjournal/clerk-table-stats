@@ -8,15 +8,16 @@
             [clojure.walk :as walk]))
 
 (def table-col-bars
-  '(fn table-col-bars [{:keys [col-type category-count distribution width height]}]
-     (reagent.core/with-let [selected-bar (reagent.core/atom nil)]
+  '(fn table-col-bars [{:keys [col-type category-count distribution width height idx]} {:keys [table-state idx]}]
+     (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
+                             !filtered-bar (reagent.core/atom nil)]
        (let [width 140
              height 30
              last-index (dec (count distribution))]
          [:div
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
-           (if-let [{:keys [count percentage]} @selected-bar]
+           (if-let [{:keys [count percentage]} @!selected-bar]
              (str count " rows (" (.toFixed (* 100 percentage) 2) "%)")
              col-type)]
           (into
@@ -25,10 +26,22 @@
              :class "rounded-sm overflow-hidden items-center "}]
            (map-indexed
             (fn [i {:as bar :keys [label count percentage range]}]
-              (let [bar-width (* width percentage)]
+              (let [bar-width (* width percentage)
+                    filtered? (= @!filtered-bar label)
+                    _ (prn :label label filtered?)
+                    selected? (or (= @!selected-bar bar)
+                                  filtered?)]
                 [:div.relative.overflow-hidden
-                 {:on-mouse-enter #(reset! selected-bar bar)
-                  :on-mouse-leave #(reset! selected-bar nil)
+                 {:on-click #(do
+                               (swap! !filtered-bar (fn [filtered-label]
+                                                      (if (= filtered-label label)
+                                                        nil
+                                                        label)))
+                               (if filtered?
+                                 (swap! table-state update :filter dissoc idx)
+                                 (swap! table-state update :filter assoc idx label)))
+                  :on-mouse-enter #(reset! !selected-bar bar)
+                  :on-mouse-leave #(reset! !selected-bar nil)
                   :class (case label
                            :unique "bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 "
                            :empty "bg-orange-200 hover:bg-orange-300 dark:bg-pink-900 dark:bg-opacity-[0.7] dark:hover:bg-pink-800 "
@@ -50,7 +63,7 @@
           [:div.text-slate-500.dark:text-slate-400.font-normal.truncate
            {:class "text-[12px] h-[24px] mt-[1px] leading-[24px] "
             :style {:width width}}
-           (if-let [{:keys [count label]} @selected-bar]
+           (if-let [{:keys [count label]} @!selected-bar]
              (case label
                :unique (str count " unique values")
                :empty (str count " empty/nil values")
@@ -59,7 +72,6 @@
 
 (def table-col-histogram
   '(fn table-col-histogram [{:keys [col-type distribution width height] :as col} {:keys [table-state idx]}]
-     (prn :col (keys col))
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
                              !filtered-bar (reagent.core/atom nil)
                              fmt (fn [x]
@@ -425,11 +437,16 @@
                          ks (keys filter)
                          vs
                          (or (empty? ks)
+                             ;; TODO: there should be _some_ values for each column
                              (some #(let [col-filter (get filter %)
-                                          col-value (nextjournal.clerk/->value (nth row %))]
-                                      (when (= :range (first col-filter))
-                                        (let [[_ [from to]] col-filter]
-                                          (<= from col-value to)))) ks))]
+                                          col-value (nextjournal.clerk/->value (nth row %))
+                                          ]
+                                      (when col-filter
+                                        (if (= :range (when (vector? col-filter)
+                                                        (first col-filter)))
+                                          (let [[_ [from to]] col-filter]
+                                            (<= from col-value to))
+                                          (= col-filter col-value)))) ks))]
                      (when vs
                        (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                               {:class (str "print:border-b-[1px] "
