@@ -28,7 +28,6 @@
             (fn [i {:as bar :keys [label count percentage range]}]
               (let [bar-width (* width percentage)
                     filtered? (= @!filtered-bar label)
-                    _ (prn :label label filtered?)
                     selected? (or (= @!selected-bar bar)
                                   filtered?)]
                 [:div.relative.overflow-hidden
@@ -435,19 +434,21 @@
                    (let [
                          filter (some-> table-state deref :filter)
                          ks (keys filter)
-                         vs
+                         enabled?
                          (or (empty? ks)
                              ;; TODO: there should be _some_ values for each column
-                             (some #(let [col-filter (get filter %)
-                                          col-value (nextjournal.clerk/->value (nth row %))
-                                          ]
-                                      (when col-filter
-                                        (if (= :range (when (vector? col-filter)
-                                                        (first col-filter)))
-                                          (let [[_ [from to]] col-filter]
-                                            (<= from col-value to))
-                                          (= col-filter col-value)))) ks))]
-                     (when vs
+                             (let [filters (map #(get filter %) ks)
+                                   values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                               (every? true?
+                                       (map (fn [col-filter col-value]
+                                              (or (not col-filter)
+                                                  (if (= :range (when (vector? col-filter)
+                                                                  (first col-filter)))
+                                                    (let [[_ [from to]] col-filter]
+                                                      (<= from col-value to))
+                                                    (= col-filter col-value))))
+                                            filters values))))]
+                     (when enabled?
                        (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
                               {:class (str "print:border-b-[1px] "
                                            (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
