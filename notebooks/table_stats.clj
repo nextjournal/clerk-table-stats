@@ -24,9 +24,10 @@
 
 ;; ## Concrete stuff to work on
 ;; - [ ] Make filters work client side (check Obserable for example)
-;;   - [ ] By clicking on diagram
-;;   -  [ ] How to preserve state over multiple `:render-fn`, perhaps via `:render-opts`?
-;;   - [ ] Or by selecting values from column
+;;   - [x] By clicking on diagram
+;;   - [x] How to preserve state over multiple `:render-fn`, perhaps via `:render-opts`? No, by `inspect-children`
+;;   - [ ] By clicking on filter, new values should be fetched, according to filter
+;;   - [ ] Or by selecting values from column (see Observable Data Table Cell)
 ;;   - [ ] Scrubbing
 ;;   - [ ] export filter code to be used as clerk option
 

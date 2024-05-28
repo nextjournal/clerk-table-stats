@@ -416,7 +416,7 @@
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
-                    [:pre (pr-str @table-state)]
+                    #_[:pre (pr-str @table-state)]
                     (into
                      [:table.w-full]
                      (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
@@ -436,7 +436,6 @@
                          ks (keys filter)
                          enabled?
                          (or (empty? ks)
-                             ;; TODO: there should be _some_ values for each column
                              (let [filters (map #(get filter %) ks)
                                    values (map #(nextjournal.clerk/->value (nth row %)) ks)]
                                (every? true?
