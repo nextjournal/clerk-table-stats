@@ -11,18 +11,25 @@
   (clerk/clear-cache!))
 
 ;; ## Research
-;; - [ ] Check out Observable data call (SQL example)
+
+;; - [x] Check out Observable data table cell (SQL example)
 ;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
-;; - [ ] API to provide your own `:schema,` such that clerk doesn't have to normalize all the data
+;; - [ ] API to provide your own `:schema` such that clerk doesn't have to normalize all the data
 ;; - [ ] check out how this would work with table cloth large columnar data sets
-;;   - [ ] don't know how skipping normalization buys us anything since you need to transpose the data anyway when sending it to the client to render it as a table, so what problem are we solving again?, see `table-cloth` branch
+;;   - [ ] skip mapcat stuff
+;;   - [ ] take 1000 like with clerk tableviewer
+;;   - [ ] should work with infinite seqs in map-of-seq
+
 ;; - [ ] also with datomic qseq in ductile
 
 ;; ## Concrete stuff to work on
 ;; - [ ] Make filters work client side (check Obserable for example)
-;;   - [ ] By clicking on diagram
-;;   - [ ] Or by selecting values from column
+;;   - [x] By clicking on diagram
+;;   - [x] How to preserve state over multiple `:render-fn`, perhaps via `:render-opts`? No, by `inspect-children`
+;;   - [ ] By clicking on filter, new values should be fetched, according to filter
+;;   - [ ] Or by selecting values from column (see Observable Data Table Cell)
 ;;   - [ ] Scrubbing
+;;   - [ ] export filter code to be used as clerk option
 
 (def my-data
   [{:category :foo :value 10}
@@ -30,7 +37,7 @@
    {:category :foo :value 10}
    {:category :bar :value 15}
    {:category :bar :value 22}
-   {:value 12}])
+   {:category :baz :value 12}])
 
 (clerk/table my-data)
 

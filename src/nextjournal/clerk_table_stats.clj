@@ -8,15 +8,16 @@
             [clojure.walk :as walk]))
 
 (def table-col-bars
-  '(fn table-col-bars [{:keys [col-type category-count distribution width height]}]
-     (reagent.core/with-let [selected-bar (reagent.core/atom nil)]
+  '(fn table-col-bars [{:keys [col-type category-count distribution width height idx]} {:keys [table-state idx]}]
+     (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
+                             !filtered-bar (reagent.core/atom nil)]
        (let [width 140
              height 30
              last-index (dec (count distribution))]
          [:div
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
-           (if-let [{:keys [count percentage]} @selected-bar]
+           (if-let [{:keys [count percentage]} @!selected-bar]
              (str count " rows (" (.toFixed (* 100 percentage) 2) "%)")
              col-type)]
           (into
@@ -25,10 +26,21 @@
              :class "rounded-sm overflow-hidden items-center "}]
            (map-indexed
             (fn [i {:as bar :keys [label count percentage range]}]
-              (let [bar-width (* width percentage)]
+              (let [bar-width (* width percentage)
+                    filtered? (= @!filtered-bar label)
+                    selected? (or (= @!selected-bar bar)
+                                  filtered?)]
                 [:div.relative.overflow-hidden
-                 {:on-mouse-enter #(reset! selected-bar bar)
-                  :on-mouse-leave #(reset! selected-bar nil)
+                 {:on-click #(do
+                               (swap! !filtered-bar (fn [filtered-label]
+                                                      (if (= filtered-label label)
+                                                        nil
+                                                        label)))
+                               (if filtered?
+                                 (swap! table-state update :filter dissoc idx)
+                                 (swap! table-state update :filter assoc idx label)))
+                  :on-mouse-enter #(reset! !selected-bar bar)
+                  :on-mouse-leave #(reset! !selected-bar nil)
                   :class (case label
                            :unique "bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 "
                            :empty "bg-orange-200 hover:bg-orange-300 dark:bg-pink-900 dark:bg-opacity-[0.7] dark:hover:bg-pink-800 "
@@ -50,7 +62,7 @@
           [:div.text-slate-500.dark:text-slate-400.font-normal.truncate
            {:class "text-[12px] h-[24px] mt-[1px] leading-[24px] "
             :style {:width width}}
-           (if-let [{:keys [count label]} @selected-bar]
+           (if-let [{:keys [count label]} @!selected-bar]
              (case label
                :unique (str count " unique values")
                :empty (str count " empty/nil values")
@@ -58,8 +70,9 @@
              (str "(" category-count " categories)"))]]))))
 
 (def table-col-histogram
-  '(fn table-col-histogram [{:keys [col-type distribution width height]}]
+  '(fn table-col-histogram [{:keys [col-type distribution width height] :as col} {:keys [table-state idx]}]
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
+                             !filtered-bar (reagent.core/atom nil)
                              fmt (fn [x]
                                    (cond (and (>= x 1000) (< x 1000000))
                                          (str (.toFixed (/ x 1000) 0) "K")
@@ -82,7 +95,9 @@
            (map-indexed
             (fn [i {:as bar row-count :count :keys [range]}]
               (let [bar-width (/ width (count distribution))
-                    selected? (= @!selected-bar bar)
+                    filtered? (= @!filtered-bar bar)
+                    selected? (or (= @!selected-bar bar)
+                                  filtered?)
                     last? (= i last-index)]
                 [:div.relative.group
                  {:on-mouse-enter #(reset! !selected-bar bar)
@@ -92,8 +107,19 @@
                  [:div.w-full.flex.items-end
                   {:style {:height height}}
                   [:div.w-full.relative
-                   {:style {:height (* (/ row-count max) height)}
-                    :class "bg-indigo-200 group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "}
+                   {:on-click #(do
+                                 (swap! !filtered-bar (fn [filtered-bar]
+                                                        (if (= filtered-bar bar)
+                                                          nil
+                                                          bar)))
+                                 (if filtered?
+                                   (swap! table-state update :filter dissoc idx)
+                                   (swap! table-state update :filter assoc idx [:range range])))
+                    :style {:height (* (/ row-count max) height)}
+                    :class (let [css ["group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
+                             (if selected?
+                               (conj "bg-indigo-400")
+                               (conj css "bg-red-200")))}
                    (when-not last?
                      [:div.absolute.top-0.right-0.bottom-0
                       {:class "bg-white dark:bg-black w-[1px]"}])]]
@@ -121,91 +147,19 @@
               [:div.absolute.left-0.top-0 (fmt from)]
               [:div.absolute.right-0.top-0 (fmt to)]])]]))))
 
-#_(def table-summary-sample
-    '(defn table-summary-sample [{:keys [continuous?]}]
-       (if continuous?
-         {:continuous? continuous?
-          :col-type "number"
-          :distribution [{:range [0 100000]
-                          :row-count 1
-                          :percentage 0.011}
-                         {:range [100000 200000]
-                          :row-count 16
-                          :percentage 0.18}
-                         {:range [200000 300000]
-                          :row-count 33
-                          :percentage 0.37}
-                         {:range [300000 400000]
-                          :row-count 22
-                          :percentage 0.25}
-                         {:range [400000 500000]
-                          :row-count 8
-                          :percentage 0.09}
-                         {:range [500000 600000]
-                          :row-count 3
-                          :percentage 0.034}
-                         {:range [600000 700000]
-                          :row-count 3
-                          :percentage 0.034}
-                         {:range [700000 800000]
-                          :row-count 1
-                          :percentage 0.011}
-                         {:range [800000 900000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [900000 1000000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1000000 1100000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1100000 1200000]
-                          :row-count 1
-                          :percentage 0.011}
-                         {:range [1200000 1300000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1300000 1400000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1400000 1500000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1500000 1600000]
-                          :row-count 0
-                          :percentage 0.0}
-                         {:range [1600000 1700000]
-                          :row-count 1
-                          :percentage 0.011}]}
-         {:continuous? continuous?
-          :col-type "string"
-          :category-count 30
-          :distribution [{:label "For Those About To Rock (We Salute You)"
-                          :row-count 3
-                          :percentage 0.068}
-                         {:label "Balls to the Wall"
-                          :row-count 2
-                          :percentage 0.045}
-                         {:label :unique
-                          :row-count 28
-                          :percentage 0.636}
-                         {:label :empty
-                          :row-count 11
-                          :percentage 0.25}]})))
-
 (def table-col-summary
   (walk/postwalk-replace {'table-col-histogram table-col-histogram
                           'table-col-bars table-col-bars}
-                         '(defn table-col-summary [{:as summary :keys [continuous?]}]
+                         '(defn table-col-summary [{:as summary :keys [continuous?]} opts]
                             (let [summary (assoc summary :width 140 :height 30)]
                               (if continuous?
-                                [table-col-histogram summary]
-                                [table-col-bars summary])))))
+                                [table-col-histogram summary opts]
+                                [table-col-bars summary opts])))))
 
 (def table-head-viewer-fn
   (walk/postwalk-replace
    {'table-col-summary table-col-summary}
-   '(fn table-head-viewer [header-row {:as opts :keys [path]}]
+   '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
             sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
             sub-headers? (seq sub-headers)]
@@ -232,7 +186,8 @@
                                      title (assoc :title title))
                                    [:div v]
                                    (when-let [summary (:summary opts)]
-                                     [table-col-summary (get summary v)])]))))
+                                     [table-col-summary (get summary v) {:table-state table-state
+                                                                         :idx index}])]))))
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
@@ -447,65 +402,25 @@
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([opts data]
-   (->> (cond
+   (-> (cond
           (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
           (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
           (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
           (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
           :else nil)
-        compute-table-summary)))
+       compute-table-summary)))
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
-                 [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
-                  {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
-                  ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
-                  (into
-                   [:table.w-full]
-                   (nextjournal.clerk.render/inspect-children opts)
-                   head+body)])})
-
-#_(defn header-cell [{:keys [sub-headers? nested? header-cell index opts]}]
-    (let [v (cond
-              nested? (last header-cell)
-              (vector? header-cell) (first header-cell)
-              :else header-cell)
-          k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
-          title (when (or (string? v) (keyword? v) (symbol? v)) v)
-          {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
-      [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-       (cond-> {:class (str
-                        "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                        (when (and sub-headers? nested?) "first:border-l-0 ")
-                        (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
-         (and column-layout (column-layout k)) (assoc :style (column-layout k))
-         (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
-         (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
-         title (assoc :title title))
-       [:div (get translated-keys v (trk v))]
-       (when-let [[component choices-or-label :as filter] (get filters k)]
-         (case component
-           :checkbox (let [selected (get-in @!expanded-at [:filters k] false)]
-                       [:label.w-full.flex.items-center.gap-1.justify-center {:style {:height 30}}
-                        [:input {:type :checkbox
-                                 :on-change (fn []
-                                              (swap! !expanded-at update-in [:filters v] not)
-                                              (update-filters! k filter (not selected)))
-                                 :checked (or selected false)}] choices-or-label])
-           :multi-select (let [selected (get-in @!expanded-at [:filters k] #{})]
-                           [multi-select {:choices choices-or-label
-                                          :selected-value selected
-                                          :show-selected? true
-                                          :placeholder "Filter…"
-                                          :on-change (fn [val]
-                                                       (let [new-selected (conj selected val)]
-                                                         (swap! !expanded-at assoc-in [:filters k] new-selected)
-                                                         (update-filters! k filter new-selected)))
-                                          :on-remove (fn [val]
-                                                       (let [new-selected (disj selected val)]
-                                                         (swap! !expanded-at assoc-in [:filters k] new-selected)
-                                                         (update-filters! k filter new-selected)))}])))]))
-
+                 (reagent.core/with-let [table-state (reagent.core/atom {:filter {}})]
+                   [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
+                    {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
+                    ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
+                    #_[:pre (pr-str @table-state)]
+                    (into
+                     [:table.w-full]
+                     (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
+                     head+body)]))})
 
 (def table-head-viewer
   {:render-fn table-head-viewer-fn})
@@ -514,23 +429,41 @@
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:render-fn '(fn [row {:as opts :keys [path number-col?]}]
-                 (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
-                        {:class (str "print:border-b-[1px] "
-                                     (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
-                       (map-indexed
-                        (fn [idx cell]
-                          [:td.px-4.py-2.text-sm.border-r.last:border-r-0
-                           {:class (str "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                        (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
-                           (nextjournal.clerk.render/inspect-presented opts cell)]))
-                       row))})
+  {:render-fn '(let []
+                 (fn [row {:as opts :keys [path number-col? table-state]}]
+                   (let [
+                         filter (some-> table-state deref :filter)
+                         ks (keys filter)
+                         enabled?
+                         (or (empty? ks)
+                             (let [filters (map #(get filter %) ks)
+                                   values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                               (every? true?
+                                       (map (fn [col-filter col-value]
+                                              (or (not col-filter)
+                                                  (if (= :range (when (vector? col-filter)
+                                                                  (first col-filter)))
+                                                    (let [[_ [from to]] col-filter]
+                                                      (<= from col-value to))
+                                                    (= col-filter col-value))))
+                                            filters values))))]
+                     (when enabled?
+                       (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
+                              {:class (str "print:border-b-[1px] "
+                                           (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
+                             (map-indexed
+                              (fn [idx cell]
+                                [:td.px-4.py-2.text-sm.border-r.last:border-r-0
+                                 {:class (str "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                              (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
+                                 (nextjournal.clerk.render/inspect-presented opts cell)]))
+                             row)))))})
 
 (def table-viewer
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (if-let [{:keys [head rows summary]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
+           (if-let [{:keys [head rows summary state]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
              (-> wrapped-value
                  (assoc :nextjournal/viewer table-markup-viewer)
                  (update :nextjournal/width #(or % :wide))
@@ -539,7 +472,8 @@
                                                                             (comp (map-indexed vector)
                                                                                   (keep #(when (number? (second %)) (first %))))
                                                                             (not-empty (first rows)))
-                                                         :summary summary})
+                                                         :summary summary
+                                                         :state state})
                  (assoc :nextjournal/value (cond->> []
                                              (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                (select-keys [:page-size])
