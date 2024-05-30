@@ -27,7 +27,7 @@
 ;;   - [ ] export filter code to be used as clerk option
 
 ;; - [ ] check out how this would work with table cloth large columnar data sets
-;;   - [ ] skip mapcat stuff
+;;   - [ ] skip mapcat stuff (see TODO in code)
 ;;   - [ ] take 1000 like with clerk tableviewer
 ;;   - [ ] should work with infinite seqs in map-of-seq
 
