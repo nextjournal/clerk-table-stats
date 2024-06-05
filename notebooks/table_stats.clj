@@ -48,26 +48,39 @@
 ^::clerk/sync
 (defonce !table-state (atom {:filter {}}))
 
-(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync {:table-state-sym `!table-state
-                                                                   :data [{:category :bang :value 10}
-                                                                          {:category :barx :value 20}
-                                                                          {:category :bang :value 10}
-                                                                          {:category :barx :value 15}
-                                                                          {:category :barx :value 22}
-                                                                          {:category :bug :value 12}
-                                                                          {:category :bug :value 22}]})
+(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync
+  [{:category :bang :value 11}
+   {:category :barx :value 20}
+   {:category :bang :value 10}
+   {:category :barx :value 15}
+   {:category :barx :value 22}
+   {:category :bug :value 12}
+   {:category :bug :value 22}])
 
-{::clerk/visibility {:code :hide :result :hide}}
+#_ @table-stats/anon-expr-5dstzZ7ATg61zHQuMY4MFbrkNN8qmE-table
+
+#_ (clerk/recompute!)
+
+(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync
+  [{:category :bang :value 1}
+   {:category :barx :value 2}
+   {:category :bang :value 1}
+   {:category :barx :value 1}
+   {:category :barx :value 2}
+   {:category :bug :value 1}
+   {:category :bug :value 2}])
 
 (def query-results
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
         ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
     (with-open [conn (jdbc/get-connection ds)]
-      (clerk/with-viewer (clerk-table-stats/table-with-stats-header @!table-state)
+      (clerk/with-viewer clerk-table-stats/table-with-stats-header-sync
         (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :Name :TrackID
                                                   :UnitPrice]
                                          :from :tracks
                                          :join [:albums [:= :tracks.AlbumId :albums.AlbumId]]}))))))
+
+{::clerk/visibility {:code :hide :result :hide}}
 
 (def row-count
   (jdbc/execute! {:dbtype "sqlite" :dbname "chinook.db"}
@@ -109,3 +122,9 @@
 
 
 (tc/dataset [{:a 1} {:a 1 :b 2}])
+
+(comment
+
+  @anon-expr-5drwytFZT7UnMsYvtXSdRi6gU5KCTr-table
+  (reset! nextjournal.clerk.webserver/!doc nil)
+  )
