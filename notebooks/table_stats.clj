@@ -12,7 +12,7 @@
 
 ;; ## Research
 
-;; - [x] Check out Observable data table cell (SQL example)
+;; - [x] Check out Observable data table cell (SQL example: https://observablehq.com/@observablehq/working-with-sql)
 ;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
 ;; - [ ] API to provide your own `:schema` such that clerk doesn't have to normalize all the data
 ;; - [ ] check out how this would work with table cloth large columnar data sets
