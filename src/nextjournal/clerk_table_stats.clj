@@ -426,7 +426,7 @@
                                                             filters values)))))))))))
 
 (def table-markup-viewer
-  {:render-fn '(fn [head+body {:as opts :keys [sync-sym]}]
+  {:render-fn '(fn [atom+head+body {:as opts :keys [sync-sym]}]
                  (reagent.core/with-let [table-state (if-some [ss (resolve sync-sym)]
                                                        (deref ss)
                                                        (throw (js/Error. (str "no sync atom: " sync-sym))))]
@@ -438,7 +438,8 @@
                                          (into
                                           [:table.w-full]
                                           (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
-                                          head+body)]))})
+                                          ;; debug atom+head+body #_
+                                          (rest atom+head+body))]))})
 
 (def table-head-viewer
   {:render-fn table-head-viewer-fn})
