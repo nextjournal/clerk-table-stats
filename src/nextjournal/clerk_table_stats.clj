@@ -412,7 +412,7 @@
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
-                 (reagent.core/with-let [table-state (reagent.core/atom {:filter {}})]
+                 (reagent.core/with-let [table-state table-stats/!table-state #_  (reagent.core/atom {:filter {}})]
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))

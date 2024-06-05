@@ -31,6 +31,9 @@
 ;;   - [ ] Scrubbing
 ;;   - [ ] export filter code to be used as clerk option
 
+^::clerk/sync
+(defonce !table-state (atom {:query "" :results [] :filter {}}))
+
 (def my-data
   [{:category :foo :value 10}
    {:category :bar :value 20}
