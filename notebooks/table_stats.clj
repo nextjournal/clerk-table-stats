@@ -1,6 +1,6 @@
 (ns ^:nextjournal.clerk/no-cache table-stats
   (:require [nextjournal.clerk :as clerk]
-            [nextjournal.clerk-table-stats] ;; loaded for side effects
+            [nextjournal.clerk-table-stats :as clerk-table-stats] ;; loaded for side effects
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [tablecloth.api :as tc]))
@@ -32,7 +32,9 @@
 ;;   - [ ] export filter code to be used as clerk option
 
 ^::clerk/sync
-(defonce !table-state (atom {:query "" :results [] :filter {}}))
+(defonce !table-state (atom {:filter {}}))
+
+{::clerk/visibility {:code :hide :result :hide}}
 
 (def my-data
   [{:category :foo :value 10}
@@ -42,8 +44,29 @@
    {:category :bar :value 22}
    {:category :baz :value 12}])
 
-(clerk/table my-data)
+(defn state->rows [{filter-spec :filter} data]
+  (update (clerk-table-stats/normalize-seq-of-map data)
+          :rows (fn [rows]
+                  (filter (fn [row]
+                            (prn :filter-spec filter-spec)
+                            (let [ks (keys filter-spec)]
+                              (or (empty? ks)
+                                  (let [filters (map #(get filter-spec %) ks)
+                                        values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                                    (every? true?
+                                            (map (fn [col-filter col-value]
+                                                   (or (not col-filter)
+                                                       (if (= :range (when (vector? col-filter)
+                                                                       (first col-filter)))
+                                                         (let [[_ [from to]] col-filter]
+                                                           (<= from col-value to))
+                                                         (= col-filter col-value))))
+                                                 filters values)))))) rows))))
+#_(state->rows {:filter {1 10}} my-data)
 
+{::clerk/visibility {:code :hide :result :show}}
+
+(clerk/table (state->rows @!table-state my-data))
 
 (def query-results
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
