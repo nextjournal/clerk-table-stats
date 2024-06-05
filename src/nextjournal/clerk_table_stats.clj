@@ -460,64 +460,7 @@
                              (nextjournal.clerk.render/inspect-presented opts cell)]))
                          row)))})
 
-(def table-viewer
-  (assoc viewer/table-viewer
-         :transform-fn
-         (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (if-let [{:keys [head rows summary state]} (normalize-table-data render-opts (viewer/->value wrapped-value))]
-             (-> wrapped-value
-                 (assoc :nextjournal/viewer table-markup-viewer)
-                 (update :nextjournal/width #(or % :wide))
-                 (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
-                                                         :number-col? (into #{}
-                                                                            (comp (map-indexed vector)
-                                                                                  (keep #(when (number? (second %)) (first %))))
-                                                                            (not-empty (first rows)))
-                                                         :summary summary
-                                                         :state state})
-                 (assoc :nextjournal/value (cond->> []
-                                             (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
-                                                                                                               (select-keys [:page-size])
-                                                                                                               (set/rename-keys {:page-size :nextjournal/page-size}))
-                                                                                                           (select-keys wrapped-value [:nextjournal/page-size]))
-                                                                (map (partial viewer/with-viewer table-row-viewer) rows)))
-                                             head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
-             (-> wrapped-value
-                 viewer/mark-presented
-                 (assoc :nextjournal/width :wide)
-                 (assoc :nextjournal/value [(viewer/present wrapped-value)])
-                 (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error}))))))
-
-(defn table-with-stats-header [table-state]
-  (assoc viewer/table-viewer
-         :transform-fn
-         (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts table-state)
-                                                                            (viewer/->value wrapped-value))]
-             (-> wrapped-value
-                 (assoc :nextjournal/viewer table-markup-viewer)
-                 (update :nextjournal/width #(or % :wide))
-                 (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
-                                                         :number-col? (into #{}
-                                                                            (comp (map-indexed vector)
-                                                                                  (keep #(when (number? (second %)) (first %))))
-                                                                            (not-empty (first rows)))
-                                                         :summary summary
-                                                         :state state})
-                 (assoc :nextjournal/value (cond->> []
-                                             (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
-                                                                                                               (select-keys [:page-size])
-                                                                                                               (set/rename-keys {:page-size :nextjournal/page-size}))
-                                                                                                           (select-keys wrapped-value [:nextjournal/page-size]))
-                                                                (map (partial viewer/with-viewer table-row-viewer) rows)))
-                                             head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
-             (-> wrapped-value
-                 viewer/mark-presented
-                 (assoc :nextjournal/width :wide)
-                 (assoc :nextjournal/value [(viewer/present wrapped-value)])
-                 (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error}))))))
-
-(def table-with-stats-header-sync
+(def viewer
   (assoc viewer/table-viewer
          :transform-fn
          (fn transform-fn [{:as wrapped-value :keys [id] :nextjournal/keys [applied-viewer render-opts]}]
@@ -559,11 +502,10 @@
                    (assoc :nextjournal/value [(viewer/present wrapped-value)])
                    (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error})))))))
 
-
-
+#_
 (viewer/reset-viewers! :default
                        (viewer/add-viewers (viewer/get-default-viewers)
-                                           [table-viewer]))
+                                           [viewer]))
 
 {::clerk/visibility {:code :hide :result :show}}
 

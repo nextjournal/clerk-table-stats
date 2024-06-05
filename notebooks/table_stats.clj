@@ -42,13 +42,7 @@
    {:category :bar :value 22}
    {:category :baz :value 12}])
 
-#_
-(clerk/with-viewer (clerk-table-stats/table-with-stats-header @!table-state) my-data)
-
-^::clerk/sync
-(defonce !table-state (atom {:filter {}}))
-
-(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync
+(clerk/with-viewer clerk-table-stats/viewer
   [{:category :bang :value 11}
    {:category :barx :value 20}
    {:category :bang :value 10}
@@ -61,7 +55,7 @@
 
 #_ (clerk/recompute!)
 
-(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync
+(clerk/with-viewer clerk-table-stats/viewer
   [{:category :bang :value 1}
    {:category :barx :value 2}
    {:category :bang :value 1}
@@ -74,13 +68,12 @@
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
         ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
     (with-open [conn (jdbc/get-connection ds)]
-      (clerk/with-viewer clerk-table-stats/table-with-stats-header-sync
-        (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :Name :TrackID
-                                                  :UnitPrice]
+      (clerk/with-viewer clerk-table-stats/viewer
+        (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :tracks.Name :TrackID
+                                                  :UnitPrice :artists.Name]
                                          :from :tracks
-                                         :join [:albums [:= :tracks.AlbumId :albums.AlbumId]]}))))))
-
-{::clerk/visibility {:code :hide :result :hide}}
+                                         :join [:albums [:= :tracks.AlbumId :albums.AlbumId]
+                                                :artists [:= :artists.ArtistId :albums.ArtistId]]}))))))
 
 (def row-count
   (jdbc/execute! {:dbtype "sqlite" :dbname "chinook.db"}
@@ -97,19 +90,20 @@
     :exit/transport {:transport/mode :mode/truck
                      :transport/name "Kempers"}}
    {:ars/id "2"
-    :compound/name "Krefeld"
+    :compound/name "Lonato"
     :ductile/id #uuid "774f1174-7ec1-2c44-3f80-15be68f29060"
     :entry/transport {:transport/mode :mode/truck
                       :transport/name "Kempers"}
     :exit/transport {:transport/mode :mode/truck}}])
 
-(clerk/table {::clerk/render-opts {:group-headers true
-                                   :column-order [:compound/name
-                                                  [:entry/transport [:transport/name :transport/mode]]
-                                                  [:exit/transport [:transport/name :transport/mode]]
-                                                  :entry/datetime]
-                                   :hide-columns [:ars/id :ductile/id]}}
-             nested-seq-of-map)
+(clerk/with-viewer clerk-table-stats/viewer
+  {::clerk/render-opts {:group-headers true
+                        :column-order [:compound/name
+                                       [:entry/transport [:transport/name :transport/mode]]
+                                       [:exit/transport [:transport/name :transport/mode]]
+                                       :entry/datetime]
+                        :hide-columns [:ars/id :ductile/id]}}
+  nested-seq-of-map)
 
 
 ;; classic map of seq, columnar data
@@ -124,6 +118,8 @@
 (tc/dataset [{:a 1} {:a 1 :b 2}])
 
 (comment
+
+  (reset! table-stats/query-results-table {:filter {}})
 
   @anon-expr-5drwytFZT7UnMsYvtXSdRi6gU5KCTr-table
   (reset! nextjournal.clerk.webserver/!doc nil)
