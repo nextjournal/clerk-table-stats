@@ -537,8 +537,8 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (let [sync-sym (viewer/->value wrapped-value)
-                 {:as table-state :keys [data]} @@(resolve sync-sym)]
+           (let [{:keys [table-state-sym data]} (viewer/->value wrapped-value)
+                 table-state @@(resolve table-state-sym)]
              (prn :keys (keys table-state))
              (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts (dissoc table-state :data))
                                                                               data)]
@@ -546,7 +546,7 @@
                    (assoc :nextjournal/viewer table-markup-viewer)
                    (update :nextjournal/width #(or % :wide))
                    (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
-                                                           :sync-sym sync-sym
+                                                           :sync-sym table-state-sym
                                                            :number-col? (into #{}
                                                                               (comp (map-indexed vector)
                                                                                     (keep #(when (number? (second %)) (first %))))

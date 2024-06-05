@@ -31,9 +31,6 @@
 ;;   - [ ] Scrubbing
 ;;   - [ ] export filter code to be used as clerk option
 
-^::clerk/sync
-(defonce !table-state (atom {:filter {}}))
-
 #_ (reset! !table-state {:filter {}})
 
 #_
@@ -49,16 +46,16 @@
 (clerk/with-viewer (clerk-table-stats/table-with-stats-header @!table-state) my-data)
 
 ^::clerk/sync
-(defonce demo-data
-  (atom {:filter {}
-         :data [{:category :bang :value 10}
-                {:category :barx :value 20}
-                {:category :bang :value 10}
-                {:category :barx :value 15}
-                {:category :barx :value 22}
-                {:category :bug :value 12}]}))
+(defonce !table-state (atom {:filter {}}))
 
-(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync `demo-data)
+(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync {:table-state-sym `!table-state
+                                                                   :data [{:category :bang :value 10}
+                                                                          {:category :barx :value 20}
+                                                                          {:category :bang :value 10}
+                                                                          {:category :barx :value 15}
+                                                                          {:category :barx :value 22}
+                                                                          {:category :bug :value 12}
+                                                                          {:category :bug :value 22}]})
 
 {::clerk/visibility {:code :hide :result :hide}}
 
@@ -98,7 +95,8 @@
                                                   [:entry/transport [:transport/name :transport/mode]]
                                                   [:exit/transport [:transport/name :transport/mode]]
                                                   :entry/datetime]
-                                   :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
+                                   :hide-columns [:ars/id :ductile/id]}}
+             nested-seq-of-map)
 
 
 ;; classic map of seq, columnar data
