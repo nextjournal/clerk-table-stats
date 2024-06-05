@@ -88,6 +88,7 @@
                      :V4 (take 9 (cycle ["A" "B" "C"]))
                      :V5 (range)}))
 
+(def infinite-map-of-seq
+  {:v1 (range)})
 
-
-(tc/dataset [{:a 1} {:a 1 :b 2}])
+;; (clerk/table infinite-map-of-seq)

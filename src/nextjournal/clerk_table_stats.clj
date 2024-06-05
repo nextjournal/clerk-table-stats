@@ -233,7 +233,6 @@
                  (head->paths schema)
                  (->> s
                       (apply deep-merge)
-                      ;; TODO this stuff we should be able to skip
                       (mapcat (fn [[k v]]
                                 (if (and (map? v) group-headers)
                                   (map #(if (or (true? group-headers) (contains? (set group-headers) k))
@@ -265,6 +264,7 @@
    (let [paths (if schema
                  (head->paths schema)
                  (->> m
+                      ;; TODO this stuff we should be able to skip
                       (mapcat (fn [[k s]]
                                 (if (and group-headers (map? (first s)))
                                   (let [mm (apply deep-merge s)]
