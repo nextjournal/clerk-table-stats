@@ -36,8 +36,7 @@
 
 #_ (reset! !table-state {:filter {}})
 
-{::clerk/visibility {:code :hide :result :hide}}
-
+#_
 (def my-data
   [{:category :foo :value 10}
    {:category :bar :value 20}
@@ -46,29 +45,22 @@
    {:category :bar :value 22}
    {:category :baz :value 12}])
 
-(defn state->rows [{filter-spec :filter} data]
-  (update (clerk-table-stats/normalize-seq-of-map data)
-          :rows (fn [rows]
-                  (filter (fn [row]
-                            (prn :filter-spec filter-spec)
-                            (let [ks (keys filter-spec)]
-                              (or (empty? ks)
-                                  (let [filters (map #(get filter-spec %) ks)
-                                        values (map #(nextjournal.clerk/->value (nth row %)) ks)]
-                                    (every? true?
-                                            (map (fn [col-filter col-value]
-                                                   (or (not col-filter)
-                                                       (if (= :range (when (vector? col-filter)
-                                                                       (first col-filter)))
-                                                         (let [[_ [from to]] col-filter]
-                                                           (<= from col-value to))
-                                                         (= col-filter col-value))))
-                                                 filters values)))))) rows))))
-#_(state->rows {:filter {1 10}} my-data)
-
-{::clerk/visibility {:code :hide :result :show}}
-
+#_
 (clerk/with-viewer (clerk-table-stats/table-with-stats-header @!table-state) my-data)
+
+^::clerk/sync
+(defonce demo-data
+  (atom {:filter {}
+         :data [{:category :bang :value 10}
+                {:category :barx :value 20}
+                {:category :bang :value 10}
+                {:category :barx :value 15}
+                {:category :barx :value 22}
+                {:category :bug :value 12}]}))
+
+(clerk/with-viewer clerk-table-stats/table-with-stats-header-sync `demo-data)
+
+{::clerk/visibility {:code :hide :result :hide}}
 
 (def query-results
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"

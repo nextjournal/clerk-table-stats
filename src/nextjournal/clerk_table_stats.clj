@@ -427,8 +427,9 @@
                                                             filters values)))))))))))
 
 (def table-markup-viewer
-  {:render-fn '(fn [head+body opts]
-                 (reagent.core/with-let [table-state table-stats/!table-state #_  (reagent.core/atom {:filter {}})]
+  {:render-fn '(fn [head+body {:as opts :keys [sync-sym]}]
+                 (prn :opts opts)
+                 (reagent.core/with-let [table-state @(resolve sync-sym) ]
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
@@ -531,6 +532,40 @@
                  (assoc :nextjournal/width :wide)
                  (assoc :nextjournal/value [(viewer/present wrapped-value)])
                  (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error}))))))
+
+(def table-with-stats-header-sync
+  (assoc viewer/table-viewer
+         :transform-fn
+         (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
+           (let [sync-sym (viewer/->value wrapped-value)
+                 {:as table-state :keys [data]} @@(resolve sync-sym)]
+             (prn :keys (keys table-state))
+             (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts (dissoc table-state :data))
+                                                                              data)]
+               (-> wrapped-value
+                   (assoc :nextjournal/viewer table-markup-viewer)
+                   (update :nextjournal/width #(or % :wide))
+                   (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
+                                                           :sync-sym sync-sym
+                                                           :number-col? (into #{}
+                                                                              (comp (map-indexed vector)
+                                                                                    (keep #(when (number? (second %)) (first %))))
+                                                                              (not-empty (first rows)))
+                                                           :summary summary
+                                                           :state state})
+                   (assoc :nextjournal/value (cond->> []
+                                               (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
+                                                                                                                 (select-keys [:page-size])
+                                                                                                                 (set/rename-keys {:page-size :nextjournal/page-size}))
+                                                                                                             (select-keys wrapped-value [:nextjournal/page-size]))
+                                                                  (map (partial viewer/with-viewer table-row-viewer) rows)))
+                                               head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
+               (-> wrapped-value
+                   viewer/mark-presented
+                   (assoc :nextjournal/width :wide)
+                   (assoc :nextjournal/value [(viewer/present wrapped-value)])
+                   (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error})))))))
+
 
 
 (viewer/reset-viewers! :default
