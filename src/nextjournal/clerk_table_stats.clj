@@ -151,6 +151,7 @@
   (walk/postwalk-replace {'table-col-histogram table-col-histogram
                           'table-col-bars table-col-bars}
                          '(defn table-col-summary [{:as summary :keys [continuous?]} opts]
+                            (prn "summary" summary)
                             (let [summary (assoc summary :width 140 :height 30)]
                               (if continuous?
                                 [table-col-histogram summary opts]
@@ -401,14 +402,29 @@
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
-  ([opts data]
+  ([{:as opts filter-spec :filter} data]
    (-> (cond
           (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
           (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
           (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
           (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
           :else nil)
-       compute-table-summary)))
+       compute-table-summary
+       (update :rows (partial filter (fn [row]
+                                       (prn :filter-spec filter-spec)
+                                       (let [ks (keys filter-spec)]
+                                         (or (empty? ks)
+                                             (let [filters (map #(get filter-spec %) ks)
+                                                   values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                                               (every? true?
+                                                       (map (fn [col-filter col-value]
+                                                              (or (not col-filter)
+                                                                  (if (= :range (when (vector? col-filter)
+                                                                                  (first col-filter)))
+                                                                    (let [[_ [from to]] col-filter]
+                                                                      (<= from col-value to))
+                                                                    (= col-filter col-value))))
+                                                            filters values)))))))))))
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body opts]
@@ -486,6 +502,36 @@
                  (assoc :nextjournal/width :wide)
                  (assoc :nextjournal/value [(viewer/present wrapped-value)])
                  (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error}))))))
+
+(defn table-with-stats-header [table-state]
+  (assoc viewer/table-viewer
+         :transform-fn
+         (fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
+           (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts table-state)
+                                                                            (viewer/->value wrapped-value))]
+             (-> wrapped-value
+                 (assoc :nextjournal/viewer table-markup-viewer)
+                 (update :nextjournal/width #(or % :wide))
+                 (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
+                                                         :number-col? (into #{}
+                                                                            (comp (map-indexed vector)
+                                                                                  (keep #(when (number? (second %)) (first %))))
+                                                                            (not-empty (first rows)))
+                                                         :summary summary
+                                                         :state state})
+                 (assoc :nextjournal/value (cond->> []
+                                             (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
+                                                                                                               (select-keys [:page-size])
+                                                                                                               (set/rename-keys {:page-size :nextjournal/page-size}))
+                                                                                                           (select-keys wrapped-value [:nextjournal/page-size]))
+                                                                (map (partial viewer/with-viewer table-row-viewer) rows)))
+                                             head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
+             (-> wrapped-value
+                 viewer/mark-presented
+                 (assoc :nextjournal/width :wide)
+                 (assoc :nextjournal/value [(viewer/present wrapped-value)])
+                 (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error}))))))
+
 
 (viewer/reset-viewers! :default
                        (viewer/add-viewers (viewer/get-default-viewers)

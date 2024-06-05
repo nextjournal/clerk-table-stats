@@ -34,6 +34,8 @@
 ^::clerk/sync
 (defonce !table-state (atom {:filter {}}))
 
+#_ (reset! !table-state {:filter {}})
+
 {::clerk/visibility {:code :hide :result :hide}}
 
 (def my-data
@@ -66,16 +68,17 @@
 
 {::clerk/visibility {:code :hide :result :show}}
 
-(clerk/table (state->rows @!table-state my-data))
+(clerk/with-viewer (clerk-table-stats/table-with-stats-header @!table-state) my-data)
 
 (def query-results
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
         ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
     (with-open [conn (jdbc/get-connection ds)]
-      (clerk/table (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :Name :TrackID
-                                                             :UnitPrice]
-                                                    :from :tracks
-                                                    :join [:albums [:= :tracks.AlbumId :albums.AlbumId]]}))))))
+      (clerk/with-viewer (clerk-table-stats/table-with-stats-header @!table-state)
+        (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :Name :TrackID
+                                                  :UnitPrice]
+                                         :from :tracks
+                                         :join [:albums [:= :tracks.AlbumId :albums.AlbumId]]}))))))
 
 (def row-count
   (jdbc/execute! {:dbtype "sqlite" :dbname "chinook.db"}
