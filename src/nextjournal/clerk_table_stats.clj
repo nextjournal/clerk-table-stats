@@ -63,10 +63,11 @@
            {:class "text-[12px] h-[24px] mt-[1px] leading-[24px] "
             :style {:width width}}
            (if-let [{:keys [count label]} @!selected-bar]
+             ;; TODO: why invalid arity 0?
              (case label
                :unique (str count " unique values")
                :empty (str count " empty/nil values")
-               label)
+               (str label))
              (str "(" category-count " categories)"))]]))))
 
 (def table-col-histogram
@@ -202,6 +203,10 @@
               (apply merge-with m xs)
               (last xs)))]
     (reduce m maps)))
+
+(comment
+  (deep-merge {:a {:b {:c 3}}} {:a {:b {:c 4 :d 5}}})
+  )
 
 (defn paths->head [paths]
   (->> paths
@@ -424,7 +429,6 @@
                                                                       (<= from col-value to))
                                                                     (= col-filter col-value))))
                                                             filters values)))))))))))
-
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
                  (reagent.core/with-let [table-state (if sync-var
