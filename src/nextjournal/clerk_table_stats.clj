@@ -426,20 +426,20 @@
                                                             filters values)))))))))))
 
 (def table-markup-viewer
-  {:render-fn '(fn [atom+head+body {:as opts :keys [sync-sym]}]
-                 (reagent.core/with-let [table-state (if-some [ss (resolve sync-sym)]
+  {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
+                 (reagent.core/with-let [table-state (if-some [ss sync-var]
                                                        (deref ss)
-                                                       (throw (js/Error. (str "no sync atom: " sync-sym))))]
-                                        (prn "table-state" table-state)
-                                        [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
-                                         {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
-                                         ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
-                                         #_[:pre (pr-str @table-state)]
-                                         (into
-                                          [:table.w-full]
-                                          (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
-                                          ;; debug atom+head+body #_
-                                          (rest atom+head+body))]))})
+                                                       (throw (js/Error. (str "no sync var: " sync-var))))]
+                   (prn :table-state table-state)
+                   [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
+                    {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
+                    ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
+                    #_[:pre (pr-str @table-state)]
+                    (into
+                     [:table.w-full]
+                     (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
+                     ;; debug atom+head+body #_
+                     head+body)]))})
 
 (def table-head-viewer
   {:render-fn table-head-viewer-fn})
@@ -470,10 +470,7 @@
                      (when-some [ns' (find-ns (symbol (namespace var-name)))]
                        (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
                                                               (add-watch :foo (fn [_k _r _o _n] (clerk/recompute!)))))))
-                 ui-var (viewer/->viewer-eval (list 'nextjournal.clerk.render/intern-atom! (list 'quote var-name) {:filter {} :init 1}))
                  table-state @@(resolve var-name)]
-
-             (prn :ui-var ui-var)
 
              (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts table-state)
                                                                               (viewer/->value wrapped-value))]
@@ -481,7 +478,9 @@
                    (assoc :nextjournal/viewer table-markup-viewer)
                    (update :nextjournal/width #(or % :wide))
                    (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
-                                                           :sync-sym var-name
+                                                           :sync-var (viewer/->viewer-eval
+                                                                      (list 'nextjournal.clerk.render/intern-atom!
+                                                                            (list 'quote var-name) {:filter {} :init 2}))
                                                            :number-col? (into #{}
                                                                               (comp (map-indexed vector)
                                                                                     (keep #(when (number? (second %)) (first %))))
@@ -494,9 +493,7 @@
                                                                                                                  (set/rename-keys {:page-size :nextjournal/page-size}))
                                                                                                              (select-keys wrapped-value [:nextjournal/page-size]))
                                                                   (map (partial viewer/with-viewer table-row-viewer) rows)))
-                                               head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head))
-
-                                               ui-var (cons ui-var))))
+                                               head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
                (-> wrapped-value
                    viewer/mark-presented
                    (assoc :nextjournal/width :wide)
