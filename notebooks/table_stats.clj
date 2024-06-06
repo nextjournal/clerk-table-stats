@@ -116,11 +116,3 @@
 
 
 (tc/dataset [{:a 1} {:a 1 :b 2}])
-
-(comment
-
-  (reset! table-stats/query-results-table {:filter {}})
-
-  @anon-expr-5drwytFZT7UnMsYvtXSdRi6gU5KCTr-table
-  (reset! nextjournal.clerk.webserver/!doc nil)
-  )

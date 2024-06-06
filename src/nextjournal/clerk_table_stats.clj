@@ -232,6 +232,7 @@
    (let [paths (if schema
                  (head->paths schema)
                  (->> s
+                      (take 1000)
                       (apply deep-merge)
                       (mapcat (fn [[k v]]
                                 (if (and (map? v) group-headers)
