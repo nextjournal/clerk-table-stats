@@ -404,11 +404,11 @@
   ([data] (normalize-table-data {} data))
   ([{:as opts filter-spec :filter} data]
    (-> (cond
-          (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
-          (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
-          (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
-          (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
-          :else nil)
+         (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
+         (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
+         (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
+         (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
+         :else nil)
        compute-table-summary
        (update :rows (partial filter (fn [row]
                                        (let [ks (keys filter-spec)]
@@ -427,8 +427,8 @@
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
-                 (reagent.core/with-let [table-state (if-some [ss sync-var]
-                                                       (deref ss)
+                 (reagent.core/with-let [table-state (if sync-var
+                                                       (deref sync-var)
                                                        (throw (js/Error. (str "no sync var: " sync-var))))]
                    (prn :table-state table-state)
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
