@@ -9,11 +9,11 @@
 
 (def table-col-bars
   '(fn table-col-bars [{:keys [col-type category-count distribution width height idx]} {:keys [table-state idx]}]
-     (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
-                             !filtered-bar (reagent.core/atom nil)]
+     (reagent.core/with-let [!selected-bar (reagent.core/atom nil)]
        (let [width 140
              height 30
-             last-index (dec (count distribution))]
+             last-index (dec (count distribution))
+             filtered-bar (get (:filter @table-state) idx)]
          [:div
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
@@ -27,18 +27,13 @@
            (map-indexed
             (fn [i {:as bar :keys [label count percentage range]}]
               (let [bar-width (* width percentage)
-                    filtered? (= @!filtered-bar label)
+                    filtered? (= filtered-bar label)
                     selected? (or (= @!selected-bar bar)
                                   filtered?)]
                 [:div.relative.overflow-hidden
-                 {:on-click #(do
-                               (swap! !filtered-bar (fn [filtered-label]
-                                                      (if (= filtered-label label)
-                                                        nil
-                                                        label)))
-                               (if filtered?
-                                 (swap! table-state update :filter dissoc idx)
-                                 (swap! table-state update :filter assoc idx label)))
+                 {:on-click #(if filtered?
+                               (swap! table-state update :filter dissoc idx)
+                               (swap! table-state update :filter assoc idx label))
                   :on-mouse-enter #(reset! !selected-bar bar)
                   :on-mouse-leave #(reset! !selected-bar nil)
                   :class (case label
@@ -74,14 +69,14 @@
 (def table-col-histogram
   '(fn table-col-histogram [{:keys [col-type distribution width height] :as col} {:keys [table-state idx]}]
      (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
-                             !filtered-bar (reagent.core/atom nil)
                              fmt (fn [x]
                                    (cond (and (>= x 1000) (< x 1000000))
                                          (str (.toFixed (/ x 1000) 0) "K")
                                          (>= x 1000000)
                                          (str (.toFixed (/ x 1000000) 0) "M")
                                          :else (str (.toFixed x 0))))]
-       (let [max (:count (apply max-key :count distribution))
+       (let [filtered-bar (get (:filter @table-state) idx)
+             max (:count (apply max-key :count distribution))
              last-index (dec (count distribution))
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
@@ -97,7 +92,7 @@
            (map-indexed
             (fn [i {:as bar row-count :count :keys [range]}]
               (let [bar-width (/ width (count distribution))
-                    filtered? (= @!filtered-bar bar)
+                    filtered? (= filtered-bar bar)
                     selected? (or (= @!selected-bar bar)
                                   filtered?)
                     last? (= i last-index)]
@@ -109,14 +104,9 @@
                  [:div.w-full.flex.items-end
                   {:style {:height height}}
                   [:div.w-full.relative
-                   {:on-click #(do
-                                 (swap! !filtered-bar (fn [filtered-bar]
-                                                        (if (= filtered-bar bar)
-                                                          nil
-                                                          bar)))
-                                 (if filtered?
-                                   (swap! table-state update :filter dissoc idx)
-                                   (swap! table-state update :filter assoc idx [:range range])))
+                   {:on-click #(if filtered?
+                                 (swap! table-state update :filter dissoc idx)
+                                 (swap! table-state update :filter assoc idx bar))
                     :style {:height (* (/ row-count max) height)}
                     :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
@@ -193,6 +183,7 @@
                                      (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
                                    [:div v]
+                                   #_[:pre (pr-str @table-state)]
                                    (when-let [summary (:summary opts)]
                                      [table-col-summary (get summary v) {:table-state table-state
                                                                          :idx index}])]))))
@@ -430,9 +421,8 @@
                                                (every? true?
                                                        (map (fn [col-filter col-value]
                                                               (or (not col-filter)
-                                                                  (if (= :range (when (vector? col-filter)
-                                                                                  (first col-filter)))
-                                                                    (let [[_ [from to]] col-filter]
+                                                                  (if-let [rng (:range col-filter)]
+                                                                    (let [[from to] rng]
                                                                       (<= from col-value to))
                                                                     (= col-filter col-value))))
                                                             filters values)))))))))))
