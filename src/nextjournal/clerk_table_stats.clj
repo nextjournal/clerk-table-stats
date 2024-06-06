@@ -44,7 +44,8 @@
                   :class (case label
                            :unique "bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 "
                            :empty "bg-orange-200 hover:bg-orange-300 dark:bg-pink-900 dark:bg-opacity-[0.7] dark:hover:bg-pink-800 "
-                           "bg-indigo-200 hover:bg-indigo-300 dark:bg-sky-700 dark:hover:bg-sky-500")
+                           (cond-> ["bg-indigo-200 hover:bg-indigo-300 dark:bg-sky-700 dark:hover:bg-sky-500"]
+                             selected? (conj "bg-indigo-400")))
                   :style {:width bar-width
                           :height height}}
                  (when (and (contains? #{:unique :empty} label) (< 30 bar-width))
@@ -153,9 +154,15 @@
                           'table-col-bars table-col-bars}
                          '(defn table-col-summary [{:as summary :keys [continuous?]} opts]
                             (let [summary (assoc summary :width 140 :height 30)]
-                              (if continuous?
-                                [table-col-histogram summary opts]
-                                [table-col-bars summary opts])))))
+                              [:div.flex.cursor-pointer
+                               [:div
+                                {:title "TODO: Philippa"
+                                 :on-click #(swap! (:table-state opts) update :filter dissoc (:idx opts))}
+                                "x"
+                                ]
+                               (if continuous?
+                                 [table-col-histogram summary opts]
+                                 [table-col-bars summary opts])]))))
 
 (def table-head-viewer-fn
   (walk/postwalk-replace
