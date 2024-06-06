@@ -151,7 +151,6 @@
   (walk/postwalk-replace {'table-col-histogram table-col-histogram
                           'table-col-bars table-col-bars}
                          '(defn table-col-summary [{:as summary :keys [continuous?]} opts]
-                            (prn "summary" summary)
                             (let [summary (assoc summary :width 140 :height 30)]
                               (if continuous?
                                 [table-col-histogram summary opts]
@@ -430,11 +429,8 @@
                  (reagent.core/with-let [table-state (if sync-var
                                                        (deref sync-var)
                                                        (throw (js/Error. (str "no sync var: " sync-var))))]
-                   (prn :table-state table-state)
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
-                    ;; (prn (:render-fn (:nextjournal/viewer (first head+body))))
-                    #_[:pre (pr-str @table-state)]
                     (into
                      [:table.w-full]
                      (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
