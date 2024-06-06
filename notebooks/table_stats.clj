@@ -110,10 +110,13 @@
                      :V5 (range)}))
 
 (def infinite-map-of-seq
-  {:v1 (range)})
+  {:v1 (range 100000000000000000)})
 
-
-;; (clerk/table infinite-map-of-seq)
+(clerk/table infinite-map-of-seq)
+(do
+  (time (clerk/table infinite-map-of-seq))
+  (time (clerk/table {:v1 (range)}))
+  nil)
 
 (tc/dataset [{:a 1} {:a 1 :b 2}])
 
