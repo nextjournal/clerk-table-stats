@@ -118,9 +118,9 @@
                                    (swap! table-state update :filter dissoc idx)
                                    (swap! table-state update :filter assoc idx [:range range])))
                     :style {:height (* (/ row-count max) height)}
-                    :class (let [css ["group-hover:bg-indigo-400 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
+                    :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
-                               (conj "bg-indigo-400")
+                               (conj css "bg-red-400")
                                (conj css "bg-red-200")))}
                    (when-not last?
                      [:div.absolute.top-0.right-0.bottom-0
