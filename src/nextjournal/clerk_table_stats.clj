@@ -13,7 +13,8 @@
        (let [width 140
              height 30
              last-index (dec (count distribution))
-             filtered-bars (get (:filter @table-state) idx)]
+             filtered-bars (-> (get (:filter @table-state) idx)
+                               not-empty)]
          [:div
           #_[:pre (pr-str filtered-bars)]
           [:div.text-slate-500.dark:text-slate-400.font-normal
@@ -75,7 +76,8 @@
                                          (>= x 1000000)
                                          (str (.toFixed (/ x 1000000) 0) "M")
                                          :else (str (.toFixed x 0))))]
-       (let [filtered-bars (get (:filter @table-state) idx)
+       (let [filtered-bars (-> (get (:filter @table-state) idx)
+                               not-empty)
              max (:count (apply max-key :count distribution))
              last-index (dec (count distribution))
              from (-> distribution first :range first)
@@ -426,7 +428,7 @@
                                                    values (map #(nextjournal.clerk/->value (nth row %)) ks)]
                                                (every? true?
                                                        (map (fn [col-filter col-value]
-                                                              (or (not col-filter)
+                                                              (or (empty? col-filter)
                                                                   (if
                                                                       ;; histogram
                                                                       (:range (first col-filter))
