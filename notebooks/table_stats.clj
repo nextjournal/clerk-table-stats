@@ -8,7 +8,8 @@
 (comment
   (clerk/serve! {})
   (clerk/halt!)
-  (clerk/clear-cache!))
+  (clerk/clear-cache!)
+  (remove-ns 'table-stats))
 
 ;; ## Research
 

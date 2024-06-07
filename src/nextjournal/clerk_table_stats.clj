@@ -13,8 +13,9 @@
        (let [width 140
              height 30
              last-index (dec (count distribution))
-             filtered-bar (get (:filter @table-state) idx)]
+             filtered-bars (get (:filter @table-state) idx)]
          [:div
+          #_[:pre (pr-str filtered-bars)]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -27,13 +28,13 @@
            (map-indexed
             (fn [i {:as bar :keys [label count percentage range]}]
               (let [bar-width (* width percentage)
-                    filtered? (= filtered-bar label)
+                    filtered? (contains? filtered-bars label)
                     selected? (or (= @!selected-bar bar)
                                   filtered?)]
                 [:div.relative.overflow-hidden
                  {:on-click #(if filtered?
-                               (swap! table-state update :filter dissoc idx)
-                               (swap! table-state update :filter assoc idx label))
+                               (swap! table-state update :filter update idx disj label)
+                               (swap! table-state update :filter update idx (fnil conj #{}) label))
                   :on-mouse-enter #(reset! !selected-bar bar)
                   :on-mouse-leave #(reset! !selected-bar nil)
                   :class (case label
@@ -75,12 +76,13 @@
                                          (>= x 1000000)
                                          (str (.toFixed (/ x 1000000) 0) "M")
                                          :else (str (.toFixed x 0))))]
-       (let [filtered-bar (get (:filter @table-state) idx)
+       (let [filtered-bars (get (:filter @table-state) idx)
              max (:count (apply max-key :count distribution))
              last-index (dec (count distribution))
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
          [:div
+          #_[:pre (pr-str filtered-bars)]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -92,7 +94,7 @@
            (map-indexed
             (fn [i {:as bar row-count :count :keys [range]}]
               (let [bar-width (/ width (count distribution))
-                    filtered? (= filtered-bar bar)
+                    filtered? (contains? filtered-bars bar)
                     selected? (or (= @!selected-bar bar)
                                   filtered?)
                     last? (= i last-index)]
@@ -105,8 +107,8 @@
                   {:style {:height height}}
                   [:div.w-full.relative
                    {:on-click #(if filtered?
-                                 (swap! table-state update :filter dissoc idx)
-                                 (swap! table-state update :filter assoc idx bar))
+                                 (swap! table-state update :filter update idx disj bar)
+                                 (swap! table-state update :filter update idx (fnil conj #{}) bar))
                     :style {:height (* (/ row-count max) height)}
                     :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
@@ -427,10 +429,13 @@
                                                (every? true?
                                                        (map (fn [col-filter col-value]
                                                               (or (not col-filter)
-                                                                  (if-let [rng (:range col-filter)]
-                                                                    (let [[from to] rng]
-                                                                      (<= from col-value to))
-                                                                    (= col-filter col-value))))
+                                                                  (if
+                                                                      ;; histogram
+                                                                      (:range (first col-filter))
+                                                                    (some #(let [[from to] (:range %)]
+                                                                             (<= from col-value to))
+                                                                          col-filter)
+                                                                    (contains? col-filter col-value))))
                                                             filters values)))))))))))
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
