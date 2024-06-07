@@ -142,12 +142,18 @@
 (def table-col-summary
   (walk/postwalk-replace {'table-col-histogram table-col-histogram
                           'table-col-bars table-col-bars}
-                         '(defn table-col-summary [{:as summary :keys [continuous?]} opts]
-                            (let [summary (assoc summary :width 140 :height 30)]
-                              [:div.flex.cursor-pointer
+                         '(defn table-col-summary
+                            [{:as summary :keys [continuous?]} {:keys [table-state idx] :as opts}]
+                            (let [summary (assoc summary :width 140 :height 30)
+                                  filtered? (get (:filter @table-state) idx)]
+                              [:div.flex
                                [:div
-                                {:title "TODO: Philippa"
-                                 :on-click #(swap! (:table-state opts) update :filter dissoc (:idx opts))}
+                                {:class (cond-> ["text-indigo-200"]
+                                          filtered?
+                                          (conj "text-black" "cursor-pointer"))
+                                 :title "TODO: Philippa"
+                                 :on-click #(when filtered?
+                                              (swap! table-state update :filter dissoc idx))}
                                 "x"
                                 ]
                                (if continuous?
