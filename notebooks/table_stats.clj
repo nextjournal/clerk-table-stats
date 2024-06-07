@@ -13,20 +13,12 @@
 ;; ## Research
 
 ;; - [x] Check out Observable data table cell (SQL example: https://observablehq.com/@observablehq/working-with-sql)
-;; - [ ] Protocol/API to provide your own `:stats` rather than letting the table viewer calculate them
-;; - [ ] API to provide your own `:schema` such that clerk doesn't have to normalize all the data
-;; - [ ] check out how this would work with table cloth large columnar data sets
-;;   - [ ] skip mapcat stuff
-;;   - [ ] take 1000 like with clerk tableviewer
-;;   - [ ] should work with infinite seqs in map-of-seq
 
-;; - [ ] also with datomic qseq in ductile
-
-;; ## Concrete stuff to work on
+;; ## Stuff to work on
 ;; - [ ] Make filters work client side (check Obserable for example)
 ;;   - [x] By clicking on diagram
 ;;   - [x] How to preserve state over multiple `:render-fn`, perhaps via `:render-opts`? No, by `inspect-children`
-;;   - [ ] By clicking on filter, new values should be fetched, according to filter
+;;   - [x] By clicking on filter, new values should be fetched, according to filter
 ;;   - [ ] Or by selecting values from column (see Observable Data Table Cell)
 ;;   - [ ] Scrubbing
 ;;   - [ ] export filter code to be used as clerk option
