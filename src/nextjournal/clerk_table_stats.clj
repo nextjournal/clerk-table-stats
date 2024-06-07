@@ -153,7 +153,6 @@
                                 {:class (cond-> ["text-indigo-200"]
                                           filtered?
                                           (conj "text-black" "cursor-pointer"))
-                                 :title "TODO: Philippa"
                                  :on-click #(when filtered?
                                               (swap! table-state update :filter dissoc idx))}
                                 "x"
