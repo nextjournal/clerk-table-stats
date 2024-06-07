@@ -60,7 +60,6 @@
            {:class "text-[12px] h-[24px] mt-[1px] leading-[24px] "
             :style {:width width}}
            (if-let [{:keys [count label]} @!selected-bar]
-             ;; TODO: why invalid arity 0?
              (case label
                :unique (str count " unique values")
                :empty (str count " empty/nil values")
