@@ -33,9 +33,11 @@
                     selected? (or (= @!selected-bar bar)
                                   filtered?)]
                 [:div.relative.overflow-hidden
-                 {:on-click #(if filtered?
-                               (swap! table-state update :filter update idx disj label)
-                               (swap! table-state update :filter update idx (fnil conj #{}) label))
+                 {:on-click #(do
+                               (prn :idx idx)
+                               (if filtered?
+                                 (swap! table-state update :filter update idx disj label)
+                                 (swap! table-state update :filter update idx (fnil conj #{}) label)))
                   :on-mouse-enter #(reset! !selected-bar bar)
                   :on-mouse-leave #(reset! !selected-bar nil)
                   :class (case label
@@ -167,26 +169,26 @@
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
-            sub-headers (remove nil?
-                                (mapcat #(when (vector? %)
-                                           (let [fst (first %)
-                                                 vs (second %)]
-                                             (map (fn [v]
-                                                    [fst v])
-                                                  vs)))
-                                        header-cells))
-            _ (prn :sub-headers sub-headers)
-            ;; _ (prn :paths (paths header-cells))
+            sub-headers (->>
+                         (mapcat #(when (vector? %)
+                                    (let [fst (first %)
+                                          vs (second %)]
+                                      (map (fn [v]
+                                             {:cell [fst v]})
+                                           vs)))
+                                 header-cells)
+                         (map-indexed (fn [i e]
+                                        (when (map? e)
+                                          (assoc e :idx i))))
+                         (remove nil?))
             sub-headers? (seq sub-headers)]
+        (prn :sub-headers? sub-headers?)
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
                (map-indexed (fn [index cell]
                               (let [header-cell cell]
-                                (let [v (cond
-                                          (vector? header-cell) (first header-cell)
-                                          :else header-cell)
-                                      k (if (and (vector? header-cell)) (first header-cell) header-cell)
-                                      title (when (or (string? v) (keyword? v) (symbol? v)) v)
+                                (let [k (if (and (map? header-cell)) (first (:cell header-cell)) header-cell)
+                                      title (when (or (string? k) (keyword? k) (symbol? k)) k)
                                       {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
                                   [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
                                    (cond-> {:class (str
@@ -194,11 +196,11 @@
                                                     (when sub-headers? "first:border-l-0 ")
                                                     (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
                                      (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                                     (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
-                                     (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
+                                     (map? header-cell) (assoc :col-span (count (first (rest (:cell header-cell)))))
+                                     (and sub-headers? (not (map? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
-                                   [:div v]
-                                   (when-not (vector? cell)
+                                   [:div k]
+                                   (when-not (map? cell)
                                      (when-let [summary (:summary opts)]
                                        [table-col-summary (get-in summary [k])
                                         {:table-state table-state
@@ -206,17 +208,15 @@
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
-                 (map-indexed
-                  (fn [idx cell]
+                 (map
+                  (fn [{:keys [cell idx]}]
                     [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
                      (second cell)
                      (when-let [summary (:summary opts)]
                        [table-col-summary (get-in summary cell)
                         {:table-state table-state
-                         :idx idx}])
-                     ])
-                  sub-headers)
-                 ))]))))
+                         :idx idx #_(vector (cons idx cell))}])])
+                  sub-headers)))]))))
 
 (defn deep-merge [& maps]
   (letfn [(m [& xs]
