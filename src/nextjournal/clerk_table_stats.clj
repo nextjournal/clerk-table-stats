@@ -168,6 +168,8 @@
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
             sub-headers (remove nil? (mapcat #(when (vector? %) (second %)) header-cells))
+            _ (prn :header-cells header-cells :sub-headers sub-headers)
+            ;; _ (prn :paths (paths header-cells))
             sub-headers? (seq sub-headers)]
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
@@ -192,10 +194,11 @@
                                      title (assoc :title title))
                                    [:div v]
                                    #_[:pre (pr-str @table-state)]
-                                   (when-let [summary (:summary opts)]
-                                     [table-col-summary (or (get summary v)
-                                                            (get-in summary [v])) {:table-state table-state
-                                                                         :idx index}])]))))
+                                   (when k
+                                     (when-let [summary (:summary opts)]
+                                       [table-col-summary (get-in summary [k])
+                                        {:table-state table-state
+                                         :idx index}]))]))))
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
@@ -419,7 +422,9 @@
   (compute-col-summary [1 1 1 5 2 2 0 0 1 40 51 21])
   (def grouped (normalize-seq-of-map
                 {:group-headers true}
-                [{:category {:category/a :foo :category/b :foo}} {:category {:category/a :foo :category/b :bar}} {:category {:category/a :bar :category/b :foo}}]))
+                [{:category {:category/a :foo :category/b :foo}}
+                 {:category {:category/a :foo :category/b :bar}}
+                 {:category {:category/a :bar :category/b :foo}}]))
   (compute-table-summary grouped)
   )
 
