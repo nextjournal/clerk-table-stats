@@ -34,7 +34,6 @@
                                   filtered?)]
                 [:div.relative.overflow-hidden
                  {:on-click #(do
-                               (prn :idx idx)
                                (if filtered?
                                  (swap! table-state update :filter update idx disj label)
                                  (swap! table-state update :filter update idx (fnil conj #{}) label)))
@@ -182,12 +181,10 @@
                                           (assoc e :idx i))))
                          (remove nil?))
             sub-headers? (seq sub-headers)]
-        (prn :sub-headers? sub-headers?)
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
                (map-indexed (fn [index cell]
                               (let [header-cell cell]
-                                (prn :header-cell header-cell)
                                 (let [k (if (vector? header-cell)
                                           (first header-cell)
                                           header-cell)
@@ -203,7 +200,7 @@
                                      (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
                                    [:div k]
-                                   (when-not (map? cell)
+                                   (when-not (vector? cell)
                                      (when-let [summary (:summary opts)]
                                        [table-col-summary (get-in summary [k])
                                         {:table-state table-state
