@@ -441,15 +441,18 @@
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
-  ([{:as opts filter-spec :filter} data]
-   (-> (cond
+  ([{:as opts
+     filter-spec :filter
+     :keys [stats]
+     :or {stats true}} data]
+   (cond-> (cond
          (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
          (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
          (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
          (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
          :else nil)
-       compute-table-summary
-       (update :rows (partial filter (fn [row]
+       stats compute-table-summary
+       true (update :rows (partial filter (fn [row]
                                        (let [ks (keys filter-spec)]
                                          (or (empty? ks)
                                              (let [filters (map #(get filter-spec %) ks)
