@@ -167,34 +167,31 @@
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
-            sub-headers (keep #(when (vector? %) % #_ (second %)) header-cells)
+            sub-headers (filter vector? header-cells)
             _ (prn :header-cells header-cells :sub-headers sub-headers)
             ;; _ (prn :paths (paths header-cells))
             sub-headers? (seq sub-headers)]
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
                (map-indexed (fn [index cell]
-                              (let [header-cell cell
-                                    nested? false]
+                              (let [header-cell cell]
                                 (let [v (cond
-                                          nested? (last header-cell)
                                           (vector? header-cell) (first header-cell)
                                           :else header-cell)
-                                      k (if (and (not nested?) (vector? header-cell)) (first header-cell) header-cell)
+                                      k (if (and (vector? header-cell)) (first header-cell) header-cell)
                                       title (when (or (string? v) (keyword? v) (symbol? v)) v)
                                       {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
                                   [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
                                    (cond-> {:class (str
                                                     "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                                    (when (and sub-headers? nested?) "first:border-l-0 ")
+                                                    (when sub-headers? "first:border-l-0 ")
                                                     (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
                                      (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                                     (and (not nested?) (vector? header-cell)) (assoc :col-span (count (first (rest header-cell))))
+                                     (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
                                      (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
                                    [:div v]
-                                   [:pre "k->" k]
-                                   (when k
+                                   (when-not (vector? cell)
                                      (when-let [summary (:summary opts)]
                                        [table-col-summary (get-in summary [k])
                                         {:table-state table-state
