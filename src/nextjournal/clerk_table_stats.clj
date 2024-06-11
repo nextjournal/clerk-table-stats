@@ -167,8 +167,15 @@
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
       (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
-            sub-headers (filter vector? header-cells)
-            _ (prn :header-cells header-cells :sub-headers sub-headers)
+            sub-headers (remove nil?
+                                (mapcat #(when (vector? %)
+                                           (let [fst (first %)
+                                                 vs (second %)]
+                                             (map (fn [v]
+                                                    [fst v])
+                                                  vs)))
+                                        header-cells))
+            _ (prn :sub-headers sub-headers)
             ;; _ (prn :paths (paths header-cells))
             sub-headers? (seq sub-headers)]
         [:thead
@@ -202,12 +209,12 @@
                  (map-indexed
                   (fn [idx cell]
                     [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-
+                     (second cell)
                      (when-let [summary (:summary opts)]
                        [table-col-summary (get-in summary cell)
                         {:table-state table-state
                          :idx idx}])
-                     (second cell)])
+                     ])
                   sub-headers)
                  ))]))))
 
