@@ -193,7 +193,8 @@
                                    [:div v]
                                    #_[:pre (pr-str @table-state)]
                                    (when-let [summary (:summary opts)]
-                                     [table-col-summary (get summary v) {:table-state table-state
+                                     [table-col-summary (or (get summary v)
+                                                            (get-in summary [v])) {:table-state table-state
                                                                          :idx index}])]))))
                header-cells)
          (when-not (empty? sub-headers)
@@ -396,20 +397,31 @@
          :distribution dist}
       (not continuous?) (assoc :category-count (count dist)))))
 
-(comment
-  (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])
-  (compute-col-summary [1 1 1 5 2 2 0 0 1 40 51 21]))
-
 (defn transpose [rows]
   (apply mapv vector rows))
 
-(defn compute-table-summary [{:as data :keys [head rows]}]
+(defn compute-table-summary [{:as data :keys [rows paths]}]
   (cond-> data
-    head (assoc :summary
-                (reduce (fn [acc [k xs]]
-                          (assoc acc k (compute-col-summary xs)))
-                        {}
-                        (->> rows transpose (map vector head))))))
+    paths (assoc :summary
+                 (let [cols (transpose rows)]
+                   (->> (map (fn [path i]
+                              (let [col (nth cols i)]
+                                [path (compute-col-summary col)]))
+                            paths
+                            (range))
+                        (reduce (fn [acc [k v]]
+                                  (assoc-in acc k v))
+                                {})
+                        )))))
+
+(comment
+  (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])
+  (compute-col-summary [1 1 1 5 2 2 0 0 1 40 51 21])
+  (def grouped (normalize-seq-of-map
+                {:group-headers true}
+                [{:category {:category/a :foo :category/b :foo}} {:category {:category/a :foo :category/b :bar}} {:category {:category/a :bar :category/b :foo}}]))
+  (compute-table-summary grouped)
+  )
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))

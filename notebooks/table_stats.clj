@@ -5,6 +5,8 @@
             [honey.sql :as sql]
             [tablecloth.api :as tc]))
 
+"foo bar"
+
 (comment
   (clerk/serve! {})
   (clerk/halt!)
@@ -49,13 +51,21 @@
 #_ (clerk/recompute!)
 
 (clerk/with-viewer clerk-table-stats/viewer
-  [{:category :bang :value 1}
-   {:category :barx :value 2}
-   {:category :bang :value 1}
-   {:category :barx :value 1}
-   {:category :barx :value 2}
-   {:category :bug :value 1}
-   {:category :bug :value 2}])
+  {::clerk/render-opts {:group-headers true}}
+  [{:category {:category/a :foo
+               :category/b :bar} :value 1}
+   {:category {:category/a :foo
+               :category/b :bar} :value 2}
+   {:category {:category/a :foo
+               :category/b :bar} :value 1}
+   {:category {:category/a :foo
+               :category/b :bar} :value 1}
+   {:category {:category/a :foo
+               :category/b :bar} :value 2}
+   {:category {:category/a :foo
+               :category/b :bar} :value 1}
+   {:category {:category/a :foo
+               :category/b :bar} :value 2}])
 
 (def query-results
   (let [_run-at #inst "2021-05-20T08:28:29.445-00:00"
