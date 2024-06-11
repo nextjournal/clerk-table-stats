@@ -193,7 +193,7 @@
                                      (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
                                    [:div v]
-                                   #_[:pre (pr-str @table-state)]
+                                   [:pre "k->" k]
                                    (when k
                                      (when-let [summary (:summary opts)]
                                        [table-col-summary (get-in summary [k])
@@ -202,10 +202,17 @@
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
-                 (map-indexed (fn [idx cell]
-                                [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                                 cell]))
-                 sub-headers))]))))
+                 (map-indexed
+                  (fn [idx cell]
+                    [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+
+                     (when-let [summary (:summary opts)]
+                       [table-col-summary (get-in summary [:category cell])
+                        {:table-state table-state
+                         :idx idx}])
+                     cell])
+                  sub-headers)
+                 ))]))))
 
 (defn deep-merge [& maps]
   (letfn [(m [& xs]
