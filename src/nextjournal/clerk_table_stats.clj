@@ -187,7 +187,10 @@
          (into [:tr.print:border-b-2.print:border-black]
                (map-indexed (fn [index cell]
                               (let [header-cell cell]
-                                (let [k (if (and (map? header-cell)) (first (:cell header-cell)) header-cell)
+                                (prn :header-cell header-cell)
+                                (let [k (if (vector? header-cell)
+                                          (first header-cell)
+                                          header-cell)
                                       title (when (or (string? k) (keyword? k) (symbol? k)) k)
                                       {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
                                   [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
@@ -196,8 +199,8 @@
                                                     (when sub-headers? "first:border-l-0 ")
                                                     (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
                                      (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                                     (map? header-cell) (assoc :col-span (count (first (rest (:cell header-cell)))))
-                                     (and sub-headers? (not (map? header-cell))) (assoc :row-span 2)
+                                     (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
+                                     (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
                                    [:div k]
                                    (when-not (map? cell)
@@ -215,7 +218,7 @@
                      (when-let [summary (:summary opts)]
                        [table-col-summary (get-in summary cell)
                         {:table-state table-state
-                         :idx idx #_(vector (cons idx cell))}])])
+                         :idx idx}])])
                   sub-headers)))]))))
 
 (defn deep-merge [& maps]
