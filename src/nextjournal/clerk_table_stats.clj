@@ -199,7 +199,7 @@
                                      (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
                                      (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
                                      title (assoc :title title))
-                                   [:div k]
+                                   [:div (get translated-keys k k)]
                                    (when-not (vector? cell)
                                      (when-let [summary (:summary opts)]
                                        [table-col-summary (get-in summary [k])
@@ -211,11 +211,12 @@
                  (map
                   (fn [{:keys [cell idx]}]
                     [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                     (second cell)
-                     (when-let [summary (:summary opts)]
-                       [table-col-summary (get-in summary cell)
-                        {:table-state table-state
-                         :idx idx}])])
+                     (let [sub-header-key (second cell)] 
+                       [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
+                        (when-let [summary (:summary opts)]
+                          [table-col-summary (get-in summary cell)
+                           {:table-state table-state
+                            :idx idx}])])])
                   sub-headers)))]))))
 
 (defn deep-merge [& maps]
