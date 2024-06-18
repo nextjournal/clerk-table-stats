@@ -466,6 +466,8 @@
                                                                       ;; histogram
                                                                       (:range (first col-filter))
                                                                     (some #(let [[from to] (:range %)]
+                                                                             (def from from)
+                                                                             (def to to)
                                                                              (<= from col-value to))
                                                                           col-filter)
                                                                     (contains? col-filter col-value))))
