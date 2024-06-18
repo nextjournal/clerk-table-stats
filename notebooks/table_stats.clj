@@ -54,11 +54,11 @@
   {::clerk/render-opts {:group-headers true}}
   [{:category {:category/a :foo
                :category/b :bar} :value 1}
-   {:category {:category/a :foo
+   {:category {:category/a :bar
                :category/b :bar} :value 2}
    {:category {:category/a :foo
                :category/b :bar} :value 1}
-   {:category {:category/a :foo
+   {:category {:category/a :bar
                :category/b :bar} :value 1}
    {:category {:category/a :foo
                :category/b :bar} :value 2}
@@ -110,6 +110,8 @@
     :entry/transport {:transport/mode :mode/truck
                       :transport/name "Kempers"}
     :exit/transport {:transport/mode :mode/truck}}])
+
+;; ## Group headers
 
 (clerk/with-viewer clerk-table-stats/viewer
   {::clerk/render-opts {:group-headers true
