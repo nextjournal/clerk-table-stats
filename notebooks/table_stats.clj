@@ -83,6 +83,18 @@
                  (sql/format {:select [[[:count :*]]]
                               :from :tracks})))
 
+
+;; ## Hide columns
+
+(def data [{:id "1"
+            :name "Krefeld"}
+           {:id "2"
+            :name "Lonato"}])
+
+(clerk/with-viewer clerk-table-stats/viewer
+  {::clerk/render-opts {:hide-columns [:id]}}
+ data)
+
 (def nested-seq-of-map
   [{:ars/id "1"
     :compound/name "Krefeld"

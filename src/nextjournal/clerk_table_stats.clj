@@ -281,6 +281,7 @@
       :paths ordered-paths
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
+      :visible-paths visible-paths
       :rows (map (fn [m] (map (fn [path]
                                 (if (contains? computed-paths path)
                                   ((get-in computed-columns path) m)
@@ -415,19 +416,19 @@
 (defn transpose [rows]
   (apply mapv vector rows))
 
-(defn compute-table-summary [{:as data :keys [rows paths]}]
+(defn compute-table-summary [{:as data :keys [rows visible-paths]}]
   (cond-> data
-    paths (assoc :summary
-                 (let [cols (transpose rows)]
-                   (->> (map (fn [path i]
-                              (let [col (nth cols i)]
-                                [path (compute-col-summary col)]))
-                            paths
-                            (range))
-                        (reduce (fn [acc [k v]]
-                                  (assoc-in acc k v))
-                                {})
-                        )))))
+    visible-paths (assoc :summary
+                         (let [cols (transpose rows)]
+                           (->> (map (fn [path i]
+                                       (when-let [col (nth cols i #_nil)]
+                                         [path (compute-col-summary col)]))
+                                     visible-paths
+                                     (range))
+                                (reduce (fn [acc [k v]]
+                                          (assoc-in acc k v))
+                                        {})
+                                )))))
 
 (comment
   (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])
