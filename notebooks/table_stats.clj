@@ -5,8 +5,6 @@
             [honey.sql :as sql]
             [tablecloth.api :as tc]))
 
-"foo bar"
-
 (comment
   (clerk/serve! {})
   (clerk/halt!)
@@ -93,7 +91,7 @@
 
 (clerk/with-viewer clerk-table-stats/viewer
   {::clerk/render-opts {:hide-columns [:id]
-                        :computed-columns {:name2 (fn [x]
+                        #_#_:computed-columns {:name2 (fn [x]
                                                     (str x x))}}}
  data)
 
