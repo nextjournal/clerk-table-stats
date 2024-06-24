@@ -110,7 +110,9 @@
                   [:div.w-full.relative
                    {:on-click #(if filtered?
                                  (swap! table-state update :filter update idx disj bar)
-                                 (swap! table-state update :filter update idx (fnil conj #{}) bar))
+                                 (do
+                                   (prn :idx idx) ;; TODO: the wrong index here
+                                   (prn (swap! table-state update :filter update idx (fnil conj #{}) bar))))
                     :style {:height (* (/ row-count max) height)}
                     :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
