@@ -92,7 +92,9 @@
             :name "Lonato"}])
 
 (clerk/with-viewer clerk-table-stats/viewer
-  {::clerk/render-opts {:hide-columns [:id]}}
+  {::clerk/render-opts {:hide-columns [:id]
+                        :computed-columns {:name2 (fn [x]
+                                                    (str x x))}}}
  data)
 
 (def nested-seq-of-map
@@ -124,7 +126,7 @@
 
 
 ;; classic map of seq, columnar data
-(def DS (tc/dataset {:V1 (take 9 (cycle [1 2]))
+#_#_(def DS (tc/dataset {:V1 (take 9 (cycle [1 2]))
                      :V2 (range 1 10)
                      :V3 (take 9 (cycle [0.5 1.0 1.5]))
                      :V4 (take 9 (cycle ["A" "B" "C"]))

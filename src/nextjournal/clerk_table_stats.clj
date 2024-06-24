@@ -84,7 +84,7 @@
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
          [:div
-          #_[:pre (pr-str filtered-bars)]
+          #_[:pre (pr-str [idx (:filter @table-state)])]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -110,7 +110,9 @@
                   [:div.w-full.relative
                    {:on-click #(if filtered?
                                  (swap! table-state update :filter update idx disj bar)
-                                 (swap! table-state update :filter update idx (fnil conj #{}) bar))
+                                 (do
+                                   (prn :idx idx) ;; TODO: the wrong index here
+                                   (prn (swap! table-state update :filter update idx (fnil conj #{}) bar))))
                     :style {:height (* (/ row-count max) height)}
                     :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
@@ -167,51 +169,54 @@
   (walk/postwalk-replace
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
-      (let [header-cells (nextjournal.clerk.viewer/desc->values header-row)
-            sub-headers (->>
-                         (mapcat #(when (vector? %)
-                                    (let [fst (first %)
-                                          vs (second %)]
-                                      (map (fn [v]
-                                             {:cell [fst v]})
-                                           vs)))
-                                 header-cells)
-                         (map-indexed (fn [i e]
-                                        (when (map? e)
-                                          (assoc e :idx i))))
-                         (remove nil?))
-            sub-headers? (seq sub-headers)]
+      (let [cells (nextjournal.clerk.viewer/desc->values header-row)
+            cells (mapcat #(if (vector? %)
+                             (let [fst (first %)
+                                   vs (second %)]
+                               (map (fn [v]
+                                      {:cell [fst v]
+                                       :sub true})
+                                    vs))
+                             [{:cell %
+                               :sub false}])
+                          cells)
+            cells (map-indexed (fn [i e]
+                                 (assoc e :idx i))
+                               cells)
+            sub-headers (seq (filter :sub cells))
+            header-cells (filter (comp not :sub) cells)]
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
-               (map-indexed (fn [index cell]
-                              (let [header-cell cell]
-                                (let [k (if (vector? header-cell)
-                                          (first header-cell)
-                                          header-cell)
-                                      title (when (or (string? k) (keyword? k) (symbol? k)) k)
-                                      {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
-                                  [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                                   (cond-> {:class (str
-                                                    "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                                    (when sub-headers? "first:border-l-0 ")
-                                                    (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
-                                     (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                                     (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
-                                     (and sub-headers? (not (vector? header-cell))) (assoc :row-span 2)
-                                     title (assoc :title title))
-                                   [:div (get translated-keys k k)]
-                                   (when-not (vector? cell)
-                                     (when-let [summary (:summary opts)]
-                                       [table-col-summary (get-in summary [k])
-                                        {:table-state table-state
-                                         :idx index}]))]))))
+               (keep (fn [cell]
+                       (let [header-cell (:cell cell)
+                             index (:idx cell)
+                             k (if (vector? header-cell)
+                                 (first header-cell)
+                                 header-cell)
+                             title (when (or (string? k) (keyword? k) (symbol? k)) k)
+                             {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
+                         [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                          (cond-> {:class (str
+                                           "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                           (when sub-headers "first:border-l-0 ")
+                                           (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+                            (and column-layout (column-layout k)) (assoc :style (column-layout k))
+                            (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
+                            (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
+                            title (assoc :title title))
+                          [:div (get translated-keys k k)]
+                          (when-not (vector? cell)
+                            (when-let [summary (:summary opts)]
+                              [table-col-summary (get-in summary [k])
+                               {:table-state table-state
+                                :idx index}]))])))
                header-cells)
          (when-not (empty? sub-headers)
            (into [:tr.print:border-b-2.print:border-black]
                  (map
                   (fn [{:keys [cell idx]}]
                     [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                     (let [sub-header-key (second cell)] 
+                     (let [sub-header-key (second cell)]
                        [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
                         (when-let [summary (:summary opts)]
                           [table-col-summary (get-in summary cell)
@@ -448,28 +453,28 @@
      :keys [stats]
      :or {stats true}} data]
    (cond-> (cond
-         (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
-         (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
-         (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
-         (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
-         :else nil)
-       stats compute-table-summary
-       true (update :rows (partial filter (fn [row]
-                                       (let [ks (keys filter-spec)]
-                                         (or (empty? ks)
-                                             (let [filters (map #(get filter-spec %) ks)
-                                                   values (map #(nextjournal.clerk/->value (nth row %)) ks)]
-                                               (every? true?
-                                                       (map (fn [col-filter col-value]
-                                                              (or (empty? col-filter)
-                                                                  (if
-                                                                      ;; histogram
-                                                                      (:range (first col-filter))
-                                                                    (some #(let [[from to] (:range %)]
-                                                                             (<= from col-value to))
-                                                                          col-filter)
-                                                                    (contains? col-filter col-value))))
-                                                            filters values)))))))))))
+             (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
+             (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
+             (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
+             (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
+             :else nil)
+     stats compute-table-summary
+     true (update :rows (partial filter (fn [row]
+                                          (let [ks (keys filter-spec)]
+                                            (or (empty? ks)
+                                                (let [filters (map #(get filter-spec %) ks)
+                                                      values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                                                  (every? true?
+                                                          (map (fn [col-filter col-value]
+                                                                 (or (empty? col-filter)
+                                                                     (if
+                                                                         ;; histogram
+                                                                         (:range (first col-filter))
+                                                                       (some #(let [[from to] (:range %)]
+                                                                                (<= from col-value to))
+                                                                             col-filter)
+                                                                       (contains? col-filter col-value))))
+                                                               filters values)))))))))))
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
                  (reagent.core/with-let [table-state (if sync-var
