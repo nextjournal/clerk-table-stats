@@ -84,7 +84,7 @@
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
          [:div
-          #_[:pre (pr-str filtered-bars)]
+          [:pre (pr-str filtered-bars)]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -458,14 +458,18 @@
                                        (let [ks (keys filter-spec)]
                                          (or (empty? ks)
                                              (let [filters (map #(get filter-spec %) ks)
+                                                   _ (def kk ks)
                                                    values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                                               (def xx [filters values])
                                                (every? true?
                                                        (map (fn [col-filter col-value]
+                                                              (def x [col-filter col-value])
                                                               (or (empty? col-filter)
                                                                   (if
                                                                       ;; histogram
                                                                       (:range (first col-filter))
                                                                     (some #(let [[from to] (:range %)]
+                                                                             (def cv col-value)
                                                                              (def from from)
                                                                              (def to to)
                                                                              (<= from col-value to))
