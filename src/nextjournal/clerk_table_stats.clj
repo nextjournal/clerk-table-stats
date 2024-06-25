@@ -84,7 +84,7 @@
              from (-> distribution first :range first)
              to (-> distribution last :range last)]
          [:div
-          [:pre (pr-str [idx (:filter @table-state)])]
+          #_[:pre (pr-str [idx (:filter @table-state)])]
           [:div.text-slate-500.dark:text-slate-400.font-normal
            {:class "text-[12px] h-[24px] leading-[24px]"}
            (if-let [{:keys [count percentage]} @!selected-bar]
@@ -110,9 +110,7 @@
                   [:div.w-full.relative
                    {:on-click #(if filtered?
                                  (swap! table-state update :filter update idx disj bar)
-                                 (do
-                                   (prn :idx idx) ;; TODO: the wrong index here
-                                   (prn (swap! table-state update :filter update idx (fnil conj #{}) bar))))
+                                 (swap! table-state update :filter update idx (fnil conj #{}) bar))
                     :style {:height (* (/ row-count max) height)}
                     :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
@@ -188,48 +186,44 @@
             header-cells (map (fn [cell]
                                 {:idx (get cell->idx cell)
                                  :cell cell}) cells*)]
-        [:div
-         #_[:pre (pr-str cell->idx)]
-         [:thead
-          (into [:tr.print:border-b-2.print:border-black]
-                (keep (fn [cell]
-                        (let [_ (prn :cell cell)
-                              header-cell (:cell cell)
-                              index (:idx cell)
-                              _ (prn :index index)
-                              k (if (vector? header-cell)
-                                  (first header-cell)
-                                  header-cell)
-                              title (when (or (string? k) (keyword? k) (symbol? k)) k)
-                              {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
-                          [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                           (cond-> {:class (str
-                                            "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                            (when sub-headers "first:border-l-0 ")
-                                            (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
-                             (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                             (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
-                             (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
-                             title (assoc :title title))
-                           [:div (get translated-keys k k)]
-                           (when-not (vector? header-cell)
-                             (when-let [summary (:summary opts)]
-                               [table-col-summary (get-in summary [k])
-                                {:table-state table-state
-                                 :idx index}]))])))
-                header-cells)
-          (when-not (empty? sub-headers)
-            (into [:tr.print:border-b-2.print:border-black]
-                  (map
-                   (fn [{:keys [cell idx]}]
-                     [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
-                      (let [sub-header-key (second cell)]
-                        [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
-                         (when-let [summary (:summary opts)]
-                           [table-col-summary (get-in summary cell)
-                            {:table-state table-state
-                             :idx idx}])])])
-                   sub-headers)))]]))))
+        [:thead
+         (into [:tr.print:border-b-2.print:border-black]
+               (keep (fn [cell]
+                       (let [header-cell (:cell cell)
+                             index (:idx cell)
+                             k (if (vector? header-cell)
+                                 (first header-cell)
+                                 header-cell)
+                             title (when (or (string? k) (keyword? k) (symbol? k)) k)
+                             {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
+                         [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                          (cond-> {:class (str
+                                           "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
+                                           (when sub-headers "first:border-l-0 ")
+                                           (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+                            (and column-layout (column-layout k)) (assoc :style (column-layout k))
+                            (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
+                            (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
+                            title (assoc :title title))
+                          [:div (get translated-keys k k)]
+                          (when-not (vector? header-cell)
+                            (when-let [summary (:summary opts)]
+                              [table-col-summary (get-in summary [k])
+                               {:table-state table-state
+                                :idx index}]))])))
+               header-cells)
+         (when-not (empty? sub-headers)
+           (into [:tr.print:border-b-2.print:border-black]
+                 (map
+                  (fn [{:keys [cell idx]}]
+                    [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                     (let [sub-header-key (second cell)]
+                       [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
+                        (when-let [summary (:summary opts)]
+                          [table-col-summary (get-in summary cell)
+                           {:table-state table-state
+                            :idx idx}])])])
+                  sub-headers)))]))))
 
 (defn deep-merge [& maps]
   (letfn [(m [& xs]
