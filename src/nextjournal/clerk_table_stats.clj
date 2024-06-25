@@ -169,7 +169,7 @@
   (walk/postwalk-replace
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
-      (let [cells (nextjournal.clerk.viewer/desc->values header-row)
+      (let [cells* (nextjournal.clerk.viewer/desc->values header-row)
             cells (mapcat #(if (vector? %)
                              (let [fst (first %)
                                    vs (second %)]
@@ -179,12 +179,15 @@
                                     vs))
                              [{:cell %
                                :sub false}])
-                          cells)
+                          cells*)
             cells (map-indexed (fn [i e]
                                  (assoc e :idx i))
                                cells)
+            cell->idx (zipmap cells (map :idx cells))
             sub-headers (seq (filter :sub cells))
-            header-cells (filter (comp not :sub) cells)]
+            header-cells (map (fn [cell]
+                                {:idx (get cell->idx cell)
+                                 :cell cell}) cells*)]
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
                (keep (fn [cell]
