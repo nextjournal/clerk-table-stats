@@ -534,7 +534,8 @@
                                                                                     (keep #(when (number? (second %)) (first %))))
                                                                               (not-empty (first rows)))
                                                            :summary summary
-                                                           :state state})
+                                                           :state state
+                                                           :computed-columns nil})
                    (assoc :nextjournal/value (cond->> []
                                                (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                  (select-keys [:page-size])
