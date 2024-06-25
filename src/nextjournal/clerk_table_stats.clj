@@ -110,9 +110,7 @@
                   [:div.w-full.relative
                    {:on-click #(if filtered?
                                  (swap! table-state update :filter update idx disj bar)
-                                 (do
-                                   (prn :idx idx) ;; TODO: the wrong index here
-                                   (prn (swap! table-state update :filter update idx (fnil conj #{}) bar))))
+                                 (swap! table-state update :filter update idx (fnil conj #{}) bar))
                     :style {:height (* (/ row-count max) height)}
                     :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                              (if selected?
@@ -169,7 +167,7 @@
   (walk/postwalk-replace
    {'table-col-summary table-col-summary}
    '(fn table-head-viewer [header-row {:as opts :keys [path table-state]}]
-      (let [cells (nextjournal.clerk.viewer/desc->values header-row)
+      (let [cells* (nextjournal.clerk.viewer/desc->values header-row)
             cells (mapcat #(if (vector? %)
                              (let [fst (first %)
                                    vs (second %)]
@@ -179,12 +177,15 @@
                                     vs))
                              [{:cell %
                                :sub false}])
-                          cells)
+                          cells*)
             cells (map-indexed (fn [i e]
                                  (assoc e :idx i))
                                cells)
+            cell->idx (zipmap (map :cell cells) (map :idx cells))
             sub-headers (seq (filter :sub cells))
-            header-cells (filter (comp not :sub) cells)]
+            header-cells (map (fn [cell]
+                                {:idx (get cell->idx cell)
+                                 :cell cell}) cells*)]
         [:thead
          (into [:tr.print:border-b-2.print:border-black]
                (keep (fn [cell]
@@ -205,7 +206,7 @@
                             (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
                             title (assoc :title title))
                           [:div (get translated-keys k k)]
-                          (when-not (vector? cell)
+                          (when-not (vector? header-cell)
                             (when-let [summary (:summary opts)]
                               [table-col-summary (get-in summary [k])
                                {:table-state table-state
