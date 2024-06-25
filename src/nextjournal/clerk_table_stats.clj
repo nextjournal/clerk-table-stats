@@ -208,7 +208,7 @@
                             (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
                             title (assoc :title title))
                           [:div (get translated-keys k k)]
-                          (when-not (vector? cell)
+                          (when-not (vector? header-cell)
                             (when-let [summary (:summary opts)]
                               [table-col-summary (get-in summary [k])
                                {:table-state table-state
