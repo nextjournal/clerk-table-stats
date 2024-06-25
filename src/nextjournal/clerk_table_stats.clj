@@ -131,11 +131,11 @@
                     [:div.absolute.left-0.text-left.text-slate-500.dark:text-slate-400.font-normal.pointer-events-none
                      {:class "text-[12px] h-[24px] leading-[24px] -translate-x-full"
                       :style {:top height}}
-                     (fmt (first range))]
+                     (do fmt (first range))]
                     [:div.absolute.right-0.text-right.text-slate-500.dark:text-slate-400.font-normal.pointer-events-none
                      {:class "text-[12px] h-[24px] leading-[24px] translate-x-full"
                       :style {:top height}}
-                     (fmt (last range))]])]))
+                     (do fmt (last range))]])]))
             distribution))
           [:div.text-slate-500.dark:text-slate-400.font-normal.truncate
            {:class "text-[12px] h-[24px] leading-[24px] "
@@ -380,13 +380,14 @@
      (fn [i [group-min group-max]]
        (let [group (or (groups i) [])
              group-count (count group)]
-         {:range [group-min group-max]
+         {:range [(double group-min) (double group-max)]
           :count group-count
           :percentage (/ group-count xs-count)}))
      (partition 2 1 thresholds))))
 
 (comment
   (histogram [1 1 1 5 2 2 0 0 1 40 51 21])
+  (histogram [1 1 1 2])
   (histogram [1]))
 
 (defn categories [xs]
@@ -438,6 +439,7 @@
 (comment
   (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])
   (compute-col-summary [1 1 1 5 2 2 0 0 1 40 51 21])
+  (histogram [2 2 2 4])
   (def grouped (normalize-seq-of-map
                 {:group-headers true}
                 [{:category {:category/a :foo :category/b :foo}}
