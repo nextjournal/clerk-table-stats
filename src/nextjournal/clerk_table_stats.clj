@@ -225,15 +225,22 @@
                             :idx idx}])])])
                   sub-headers)))]))))
 
-(defn deep-merge [& maps]
-  (letfn [(m [& xs]
-            (if (some #(and (map? %) (not (record? %))) xs)
-              (apply merge-with m xs)
-              (last xs)))]
-    (reduce m maps)))
+(defn deep-merge
+  ([])
+  ([a] a)
+  ([a b]
+   (cond (when-let [m (meta b)]
+           (:replace m)) b
+         (and (map? a) (map? b)) (merge-with deep-merge a b)
+         :else b))
+  ([a b & more]
+   (apply merge-with deep-merge a b more)))
 
 (comment
   (deep-merge {:a {:b {:c 3}}} {:a {:b {:c 4 :d 5}}})
+  (deep-merge {:a {:b {:c 4 :d 5}}} {:a {:b {:c 3}}})
+  (deep-merge {:a {:pred inc}} {:a {:pred {:dude 1}}})
+  (deep-merge {:a {:pred {:dude 1}}} {:a {:pred inc}})
   )
 
 (defn paths->head [paths]
@@ -258,6 +265,22 @@
             (if (contains? hidden p) ps (vec (conj ps p))))
           []
           paths))
+
+(comment
+  (let [group-headers false]
+    (->> [{:pred {}} {:pred {:dude 1}}]
+         (take 1000)
+         (apply deep-merge)
+         (mapcat (fn [[k v]]
+                   (if (and (map? v) group-headers)
+                     (map #(if (or (true? group-headers) (contains? (set group-headers) k))
+                             (vector k %)
+                             [k])
+                          (keys v))
+                     [[k]])))
+         (remove nil?)
+         distinct))
+  )
 
 (defn normalize-seq-of-map
   ([s] (normalize-seq-of-map {} s))
