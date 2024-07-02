@@ -422,13 +422,16 @@
 (defn transpose [rows]
   (apply mapv vector rows))
 
-(defn compute-table-summary [{:as data :keys [rows visible-paths]}]
+(defn compute-table-summary [{:as data :keys [rows visible-paths]} {:keys [pre-process-stats]}]
   (cond-> data
     visible-paths (assoc :summary
                          (let [cols (transpose rows)]
                            (->> (map (fn [path i]
                                        (when-let [col (nth cols i #_nil)]
-                                         [path (compute-col-summary col)]))
+                                         (let [col (if-let [f (get-in pre-process-stats path)]
+                                                     (map f col)
+                                                     col)]
+                                           [path (compute-col-summary col)])))
                                      visible-paths
                                      (range))
                                 (reduce (fn [acc [k v]]
@@ -459,7 +462,7 @@
              (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
              (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
              :else nil)
-     stats compute-table-summary
+     stats (compute-table-summary opts)
      true (update :rows (partial filter (fn [row]
                                           (let [ks (keys filter-spec)]
                                             (or (empty? ks)
@@ -535,7 +538,8 @@
                                                                               (not-empty (first rows)))
                                                            :summary summary
                                                            :state state
-                                                           :computed-columns nil})
+                                                           })
+                   (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)
                    (assoc :nextjournal/value (cond->> []
                                                (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
                                                                                                                  (select-keys [:page-size])
