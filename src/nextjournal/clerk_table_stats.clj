@@ -539,9 +539,7 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn transform-fn [{:as wrapped-value :keys [id] :nextjournal/keys [applied-viewer render-opts]}]
-           (def w wrapped-value)
-           (let [id (or id (symbol (str (ns-name *ns*)) (str (gensym))))
-                 var-name (symbol (namespace id) (str (name id) "-table"))
+           (let [var-name (symbol (namespace id) (str (name id) "-table"))
                  _ (when-not (resolve var-name)
                      (when-some [ns' (find-ns (symbol (namespace var-name)))]
                        (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
