@@ -535,6 +535,34 @@
                              (nextjournal.clerk.render/inspect-presented opts cell)]))
                          row)))})
 
+(defn tabular? [xs]
+  (and (seqable? xs)
+       (sequential? xs)
+       (let [sample (take 100 xs)]
+         ;; TODO: do we also need some normalization to be successful?
+         ;; normalize-seq-of-map currently always returns truthy on a seq of maps
+         (every? map? sample))))
+
+{::clerk/render-opts {:group-headers true}
+ ::clerk/page-size 5
+ ::clerk/width :full}
+
+(def view-as-table-viewer
+  ;; TODO: decide if we want to opt out of matching only top-level forms
+  {:pred {:wrapped (every-pred (comp #{1} count :path)
+                               (comp tabular? viewer/->value))}
+   :transform-fn (partial clerk/with-viewer 'nextjournal.clerk.viewer/table-viewer)})
+
+;; usage with default global options
+(comment
+  (update view-as-table-viewer
+          :transform-fn
+          (fn [f]
+            (fn [wv]
+              (f {::clerk/render-opts {:group-headers true}
+                  ::clerk/page-size 5
+                  ::clerk/width :full} wv)))))
+
 (def viewer
   (assoc viewer/table-viewer
          :transform-fn
