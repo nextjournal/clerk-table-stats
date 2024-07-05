@@ -549,7 +549,7 @@
 
 (def view-as-table-viewer
   ;; TODO: decide if we want to opt out of matching only top-level forms
-  {:pred {:wrapped (every-pred (comp #{1} count :path)
+  {:pred {:wrapped (every-pred (comp #{1} count (viewer/get-safe :path))
                                (comp tabular? viewer/->value))}
    :transform-fn (partial clerk/with-viewer 'nextjournal.clerk.viewer/table-viewer)})
 

@@ -1,9 +1,10 @@
 (ns nested-tabular-data
-  {:nextjournal.clerk/visibility {:code :hide :result :hide}}
+  {:nextjournal.clerk/visibility {:code :hide :result :hide}
+   :nextjournal.clerk/no-cache true}
   (:require [nextjournal.clerk :as clerk]
             [nextjournal.clerk-table-stats :as clerk-table-stats]))
 
-#_ (clerk/add-viewers! [])
+#_(clerk/add-viewers! [])
 (clerk/add-viewers! [clerk-table-stats/view-as-table-viewer
                      clerk-table-stats/viewer])
 
@@ -17,3 +18,8 @@
   :value 22
   :children [{:category :bang :value 11}
              {:category :barx :value 20}]}]
+
+[(sorted-map "one" 1 "two" 2)
+ (sorted-map "one" 1 "two" 2)
+ (sorted-map "one" 1 "two" 2)
+ (sorted-map "one" 1 "two" 2)]
