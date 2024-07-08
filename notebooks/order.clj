@@ -10,7 +10,8 @@
   (remove-ns 'scratch))
 
 (clerk/with-viewer clerk-table-stats/viewer
-  {::clerk/render-opts {:stats false}}
+  {::clerk/render-opts {:stats false
+                        :column-order [:a :b :c]}}
   [{:a 1 :b 2 :c 3 :d 4 :e 5 :f 6 :g 7 :h 8 :i 9}])
 
 (comment

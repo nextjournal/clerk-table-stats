@@ -245,8 +245,10 @@
 
 (defn paths->head [paths]
   (->> paths
-       (group-by first)
-       (map (fn [[k paths]] (if (< 1 (count paths)) [k (mapv (comp first rest) paths)] k)))))
+       (partition-by first)
+       (map (fn [paths] (if (< 1 (count paths))
+                              [(ffirst paths) (mapv (comp first rest) paths)]
+                              (ffirst paths))))))
 
 (defn head->paths [head]
   (mapcat (fn [k]
