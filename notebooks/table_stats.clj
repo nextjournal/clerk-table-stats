@@ -70,6 +70,7 @@
         ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
     (with-open [conn (jdbc/get-connection ds)]
       (clerk/with-viewer clerk-table-stats/viewer
+        ;; {::clerk/render-opts {:select-columns [:albums/Title]}}
         (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :tracks.Name :TrackID
                                                   :UnitPrice :artists.Name]
                                          :from :tracks

@@ -263,10 +263,12 @@
        vec))
 
 (defn ->visible-paths [hidden paths]
-  (reduce (fn [ps p]
-            (if (contains? hidden p) ps (vec (conj ps p))))
-          []
-          paths))
+  (filterv (complement hidden) paths))
+
+(comment
+  (->visible-paths #{[:a] [:b]} [[:a] [:c]])
+  (->visible-paths (complement #{[:a] [:b]}) [[:a] [:c]])
+  )
 
 (comment
   (let [group-headers false]
@@ -286,7 +288,7 @@
 
 (defn normalize-seq-of-map
   ([s] (normalize-seq-of-map {} s))
-  ([{:keys [column-order computed-columns hide-columns group-headers schema]} s]
+  ([{:keys [column-order computed-columns hide-columns select-columns group-headers schema]} s]
    (let [paths (if schema
                  (head->paths schema)
                  (->> s
@@ -306,8 +308,11 @@
                          (and (not schema) (seq computed-columns)) (concat computed-paths)
                          (seq column-order) (->ordered-paths (head->paths column-order)))
          hidden-paths (if (seq hide-columns) (set (head->paths hide-columns)) #{})
+         selected-paths (when (seq select-columns)
+                          (head->paths select-columns))
          visible-paths (cond->> ordered-paths
-                         (seq hidden-paths) (->visible-paths hidden-paths))]
+                         (seq hidden-paths) (->visible-paths hidden-paths)
+                         (seq selected-paths) (->visible-paths (complement (set selected-paths))))]
      {:schema (paths->head ordered-paths)
       :paths ordered-paths
       :hidden-paths hidden-paths
@@ -472,7 +477,6 @@
                 [{:category {:category/a :foo :category/b :foo}}
                  {:category {:category/a :foo :category/b :bar}}
                  {:category {:category/a :bar :category/b :foo}}]))
-  (compute-table-summary grouped)
   )
 
 (defn normalize-table-data
