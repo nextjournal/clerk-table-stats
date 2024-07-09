@@ -574,10 +574,11 @@
          :transform-fn
          (fn transform-fn [{:as wrapped-value :keys [id] :nextjournal/keys [applied-viewer render-opts]}]
            (let [var-name (symbol (namespace id) (str (name id) "-table"))
-                 _ (when-not (resolve var-name)
-                     (when-some [ns' (find-ns (symbol (namespace var-name)))]
-                       (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
-                                                              (add-watch :foo (fn [_k _r _o _n] (clerk/recompute!)))))))
+                 _ #?(:clj (when-not (resolve var-name)
+                            (when-some [ns' (find-ns (symbol (namespace var-name)))]
+                              (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
+                                                                     (add-watch :foo (fn [_k _r _o _n] (clerk/recompute!)))))))
+                      :cljs nil)
                  table-state @@(resolve var-name)]
 
              (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts table-state)
