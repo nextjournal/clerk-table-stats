@@ -1,7 +1,8 @@
 ;; # 📊 Clerk Table Stats
 ^{:nextjournal.clerk/visibility :hide-ns}
 (ns nextjournal.clerk-table-stats
-  (:require [nextjournal.clerk :as clerk]
+  (:require #?(:clj [nextjournal.clerk :as clerk]
+               :cljs [nextjournal.clerk :as-alias clerk])
             [nextjournal.clerk.viewer :as viewer]
             [clojure.set :as set]
             [clojure.string :as str]
@@ -496,7 +497,7 @@
                                           (let [ks (keys filter-spec)]
                                             (or (empty? ks)
                                                 (let [filters (map #(get filter-spec %) ks)
-                                                      values (map #(nextjournal.clerk/->value (nth row %)) ks)]
+                                                      values (map #(viewer/->value (nth row %)) ks)]
                                                   (every? true?
                                                           (map (fn [col-filter col-value]
                                                                  (or (empty? col-filter)
@@ -557,7 +558,7 @@
   ;; TODO: decide if we want to opt out of matching only top-level forms
   {:pred {:wrapped (every-pred (comp #{1} count (viewer/get-safe :path))
                                (comp tabular? viewer/->value))}
-   :transform-fn (partial clerk/with-viewer 'nextjournal.clerk.viewer/table-viewer)})
+   :transform-fn (partial viewer/with-viewer 'nextjournal.clerk.viewer/table-viewer)})
 
 ;; usage with default global options
 (comment
@@ -577,7 +578,7 @@
                  _ #?(:clj (when-not (resolve var-name)
                             (when-some [ns' (find-ns (symbol (namespace var-name)))]
                               (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
-                                                                     (add-watch :foo (fn [_k _r _o _n] (clerk/recompute!)))))))
+                                                                     (add-watch :foo (fn [_k _r _o _n] (nextjournal.clerk/recompute!)))))))
                       :cljs nil)
                  table-state @@(resolve var-name)]
 
@@ -618,34 +619,35 @@
 
 {::clerk/visibility {:code :hide :result :show}}
 
-(comment
-  ;; ## Seq of map
+#?(:clj
+   (comment
+     ;; ## Seq of map
 
-  (def seq-of-map
-    [{:ars/id "1"
-      :compound/name "Krefeld"
-      :ductile/id #uuid "1174774f-17ec-442c-803f-2906015be68f"
-      :entry/datetime #inst "2023-09-28T06:33:01Z"}
-     {:ars/id "2"
-      :compound/name "Krefeld"
-      :ductile/id #uuid "774f1174-7ec1-2c44-3f80-15be68f29060"}])
+     (def seq-of-map
+       [{:ars/id "1"
+         :compound/name "Krefeld"
+         :ductile/id #uuid "1174774f-17ec-442c-803f-2906015be68f"
+         :entry/datetime #inst "2023-09-28T06:33:01Z"}
+        {:ars/id "2"
+         :compound/name "Krefeld"
+         :ductile/id #uuid "774f1174-7ec1-2c44-3f80-15be68f29060"}])
 
-  (clerk/example
-    (normalize-seq-of-map seq-of-map)
-    (normalize-seq-of-map {:column-order [:compound/name :entry/datetime]
-                           :hide-columns [:ars/id :ductile/id]} seq-of-map)
-    (normalize-seq-of-map {:column-order [:compound/abbreviation :compound/name :entry/datetime]
-                           :hide-columns [:ars/id :ductile/id]
-                           :computed-columns {:compound/abbreviation (fn [m]
-                                                                       (str/upper-case (str/join (take 3 (:compound/name m)))))}} seq-of-map))
+     (clerk/example
+       (normalize-seq-of-map seq-of-map)
+       (normalize-seq-of-map {:column-order [:compound/name :entry/datetime]
+                              :hide-columns [:ars/id :ductile/id]} seq-of-map)
+       (normalize-seq-of-map {:column-order [:compound/abbreviation :compound/name :entry/datetime]
+                              :hide-columns [:ars/id :ductile/id]
+                              :computed-columns {:compound/abbreviation (fn [m]
+                                                                          (str/upper-case (str/join (take 3 (:compound/name m)))))}} seq-of-map))
 
-  (clerk/table seq-of-map)
-  (clerk/table {::clerk/render-opts {:column-order [:compound/name :entry/datetime]}} seq-of-map)
-  (clerk/table {::clerk/render-opts {:hide-columns [:ars/id :ductile/id]}} seq-of-map)
-  #_(clerk/table {::clerk/render-opts {:column-order [#_:compound/abbreviation :compound/name :entry/datetime]
-                                       :hide-columns [:ars/id :ductile/id]
-                                       :computed-columns {:compound/abbreviation (fn [m]
-                                                                                   (str/upper-case (str/join (take 3 (:compound/name m)))))}}} seq-of-map))
+     (clerk/table seq-of-map)
+     (clerk/table {::clerk/render-opts {:column-order [:compound/name :entry/datetime]}} seq-of-map)
+     (clerk/table {::clerk/render-opts {:hide-columns [:ars/id :ductile/id]}} seq-of-map)
+     #_(clerk/table {::clerk/render-opts {:column-order [#_:compound/abbreviation :compound/name :entry/datetime]
+                                          :hide-columns [:ars/id :ductile/id]
+                                          :computed-columns {:compound/abbreviation (fn [m]
+                                                                                      (str/upper-case (str/join (take 3 (:compound/name m)))))}}} seq-of-map)))
 
 ;; ## Nested seq of map
 
@@ -665,22 +667,26 @@
                       :transport/name "Kempers"}
     :exit/transport {:transport/mode :mode/truck}}])
 
-(clerk/example
-  #_(normalize-seq-of-map nested-seq-of-map)
-  (normalize-seq-of-map {:group-headers true} nested-seq-of-map)
-  (normalize-seq-of-map {:group-headers [:entry/transport]} nested-seq-of-map)
-  (normalize-seq-of-map {:group-headers true
-                         :column-order [:compound/name
-                                        [:entry/transport [:transport/name :transport/mode]]
-                                        [:exit/transport [:transport/name :transport/mode]]
-                                        :entry/datetime]
-                         :hide-columns [:ars/id :ductile/id]} nested-seq-of-map))
+#?(:clj
+   (clerk/example
+     #_(normalize-seq-of-map nested-seq-of-map)
+     (normalize-seq-of-map {:group-headers true} nested-seq-of-map)
+     (normalize-seq-of-map {:group-headers [:entry/transport]} nested-seq-of-map)
+     (normalize-seq-of-map {:group-headers true
+                            :column-order [:compound/name
+                                           [:entry/transport [:transport/name :transport/mode]]
+                                           [:exit/transport [:transport/name :transport/mode]]
+                                           :entry/datetime]
+                            :hide-columns [:ars/id :ductile/id]} nested-seq-of-map)
 
-(clerk/table {::clerk/render-opts {:group-headers true}} nested-seq-of-map)
-(clerk/table {::clerk/render-opts {:group-headers [:entry/transport]}} nested-seq-of-map)
-(clerk/table {::clerk/render-opts {:group-headers true
-                                   :column-order [:compound/name
-                                                  [:entry/transport [:transport/name :transport/mode]]
-                                                  [:exit/transport [:transport/name :transport/mode]]
-                                                  :entry/datetime]
-                                   :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
+     (clerk/table {::clerk/render-opts {:group-headers true}} nested-seq-of-map)
+     (clerk/table {::clerk/render-opts {:group-headers [:entry/transport]}} nested-seq-of-map)
+     (clerk/table {::clerk/render-opts {:group-headers true
+                                        :column-order [:compound/name
+                                                       [:entry/transport [:transport/name :transport/mode]]
+                                                       [:exit/transport [:transport/name :transport/mode]]
+                                                       :entry/datetime]
+                                        :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
+))
+
+
