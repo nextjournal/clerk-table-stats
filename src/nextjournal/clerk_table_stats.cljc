@@ -580,7 +580,8 @@
                               (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
                                                                      (add-watch :foo (fn [_k _r _o _n] (nextjournal.clerk/recompute!)))))))
                       :cljs nil)
-                 table-state @@(resolve var-name)]
+                 table-state #?(:clj @@(resolve var-name)
+                                :cljs nil)]
 
              (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts table-state)
                                                                               (viewer/->value wrapped-value))]
