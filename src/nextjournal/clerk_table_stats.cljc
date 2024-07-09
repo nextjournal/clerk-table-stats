@@ -513,7 +513,8 @@
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
                  (reagent.core/with-let [table-state (if sync-var
                                                        (deref sync-var)
-                                                       (throw (js/Error. (str "no sync var: " sync-var))))]
+                                                       #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
+                                                          :cljs nil))]
                    [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     (into
@@ -573,8 +574,9 @@
 (def viewer
   (assoc viewer/table-viewer
          :transform-fn
-         (fn transform-fn [{:as wrapped-value :keys [id] :nextjournal/keys [applied-viewer render-opts]}]
-           (let [var-name (symbol (namespace id) (str (name id) "-table"))
+         (fn transform-fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
+           (let [#?@(:clj [id (:id wrapped-value)
+                           var-name (symbol (namespace id) (str (name id) "-table"))])
                  _ #?(:clj (when-not (resolve var-name)
                             (when-some [ns' (find-ns (symbol (namespace var-name)))]
                               (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
@@ -589,9 +591,9 @@
                    (assoc :nextjournal/viewer table-markup-viewer)
                    (update :nextjournal/width #(or % :wide))
                    (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
-                                                           :sync-var (viewer/->viewer-eval
-                                                                      (list 'nextjournal.clerk.render/intern-atom!
-                                                                            (list 'quote var-name) {:filter {} :init 2}))
+                                                           #?@(:clj [:sync-var (viewer/->viewer-eval
+                                                                                (list 'nextjournal.clerk.render/intern-atom!
+                                                                                    (list 'quote var-name) {:filter {} :init 2}))])
                                                            :number-col? (into #{}
                                                                               (comp (map-indexed vector)
                                                                                     (keep #(when (number? (second %)) (first %))))
