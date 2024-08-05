@@ -9,12 +9,6 @@
 
 (clerk/require-cljs 'nextjournal.clerk-table-stats-sci)
 
-(comment
-  (nextjournal.clerk.cljs-libs/clear-cljs!)
-  @#'nextjournal.clerk.cljs-libs/cljs-graph
-  (clojure.java.io/resource "nextjournal/clerk_table_stats_sci.cljs")
-  )
-
 (defn deep-merge
   ([])
   ([a] a)
@@ -468,6 +462,4 @@
                                                        [:exit/transport [:transport/name :transport/mode]]
                                                        :entry/datetime]
                                         :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
-))
-
-
+     ))
