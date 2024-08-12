@@ -36,6 +36,7 @@
    {:category :baz :value 12}])
 
 (clerk/with-viewer clerk-table-stats/viewer
+  {::clerk/render-opts {:stats true}}
   [{:category :bang :value 11}
    {:category :barx :value 20}
    {:category :bang :value 10}
@@ -49,7 +50,8 @@
 #_ (clerk/recompute!)
 
 (clerk/with-viewer clerk-table-stats/viewer
-  {::clerk/render-opts {:group-headers true}}
+  {::clerk/render-opts {:group-headers true
+                        :stats true}}
   [{:category {:category/a :foo
                :category/b :bar} :value 1}
    {:category {:category/a :bar
@@ -70,7 +72,8 @@
         ds (jdbc/get-datasource {:dbtype "sqlite" :dbname "chinook.db"})]
     (with-open [conn (jdbc/get-connection ds)]
       (clerk/with-viewer clerk-table-stats/viewer
-        ;; {::clerk/render-opts {:select-columns [:albums/Title]}}
+        {::clerk/render-opts {:stats true
+                              #_#_:select-columns [:albums/Title]}}
         (jdbc/execute! conn (sql/format {:select [:albums.title :Bytes :tracks.Name :TrackID
                                                   :UnitPrice :artists.Name]
                                          :from :tracks
@@ -91,7 +94,8 @@
             :name "Lonato"}])
 
 (clerk/with-viewer clerk-table-stats/viewer
-  {::clerk/render-opts {:hide-columns [:id]
+  {::clerk/render-opts {:stats true
+                        :hide-columns [:id]
                         #_#_:computed-columns {:name2 (fn [x]
                                                     (str x x))}}}
  data)
@@ -115,7 +119,8 @@
 ;; ## Group headers
 
 (clerk/with-viewer clerk-table-stats/viewer
-  {::clerk/render-opts {:group-headers true
+  {::clerk/render-opts {:stats true
+                        :group-headers true
                         :column-order [:compound/name
                                        [:entry/transport [:transport/name :transport/mode]]
                                        [:exit/transport [:transport/name :transport/mode]]
