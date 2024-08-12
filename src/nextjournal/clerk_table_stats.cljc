@@ -197,7 +197,7 @@
                                  header-cell)
                              title (when (or (string? k) (keyword? k) (symbol? k)) k)
                              {:keys [translated-keys column-layout number-col? filters update-filters! !expanded-at] :or {translated-keys {}}} opts]
-                         [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                         [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b
                           (cond-> {:class (str
                                            "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
                                            (when sub-headers "first:border-l-0 ")
@@ -217,9 +217,10 @@
            (into [:tr.print:border-b-2.print:border-black]
                  (map
                   (fn [{:keys [cell idx]}]
-                    [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b
+                    [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b
+                     {:class (if (< 0 idx) "border-l")}
                      (let [sub-header-key (second cell)]
-                       [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
+                       [:<> idx (get (:translated-keys opts {}) sub-header-key sub-header-key)
                         (when-let [summary (:summary opts)]
                           [table-col-summary (get-in summary cell)
                            {:table-state table-state
