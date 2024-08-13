@@ -268,7 +268,7 @@
   ([{:as opts
      filter-spec :filter
      :keys [stats]
-     :or {stats true}} data]
+     :or {stats false}} data]
    (cond-> (cond
              (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
              (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
