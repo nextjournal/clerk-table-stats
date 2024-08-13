@@ -3,8 +3,6 @@
             [nextjournal.clerk.viewer]
             [nextjournal.clerk.render]))
 
-(prn :load)
-
 (defn table-col-bars [{:keys [col-type category-count distribution]} {:keys [table-state idx]}]
   (reagent.core/with-let [!selected-bar (reagent.core/atom nil)]
     (let [width 140
@@ -156,6 +154,12 @@
        [table-col-histogram summary opts]
        [table-col-bars summary opts])]))
 
+(defn table-col-filter [filter {:keys [table-state idx]}]
+  [:div
+   [:input.border.shadow-inner.rounded-md.p-1.w-full
+    {:type :text
+     :on-input #()}]])
+
 (defn table-head-viewer
   [header-row {:as opts :keys [table-state]}]
   (let [cells* (nextjournal.clerk.viewer/desc->values header-row)
@@ -198,10 +202,16 @@
                         title (assoc :title title))
                       [:div (get translated-keys k k)]
                       (when-not (vector? header-cell)
-                        (when-let [summary (:summary opts)]
-                          [table-col-summary (get-in summary [k])
-                           {:table-state table-state
-                            :idx index}]))])))
+                        [:<>
+                         (when-let [filters (:filters opts)]
+                           (prn cell)
+                           [table-col-filter (get-in filters cell)
+                            {:table-state table-state
+                             :idx index}])
+                         (when-let [summary (:summary opts)]
+                           [table-col-summary (get-in summary [k])
+                            {:table-state table-state
+                             :idx index}])])])))
            header-cells)
      (when-not (empty? sub-headers)
        (into [:tr.print:border-b-2.print:border-black]
@@ -211,6 +221,10 @@
                  {:class (if (< 0 idx) "border-l")}
                  (let [sub-header-key (second cell)]
                    [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
+                    (when-let [filters (:filters opts)]
+                      [table-col-filter (get-in filters cell)
+                       {:table-state table-state
+                        :idx idx}])
                     (when-let [summary (:summary opts)]
                       [table-col-summary (get-in summary cell)
                        {:table-state table-state
@@ -229,3 +243,15 @@
                          (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
             (nextjournal.clerk.render/inspect-presented opts cell)]))
         row))
+
+(comment
+  ;; add :jvm-opts ["-Dclerk.render_repl={}"
+  ;; cider-connect, use port 1339
+  ;; Switch buffer to clojure-mode
+  ;; sesman-link-with-buffer, select sci repl
+  (nextjournal.clerk.render/re-render)
+  (doseq [[k var] (ns-publics *ns*)]
+    (add-watch var (keyword (str k))
+               (fn [_ _ _ _]
+                 (nextjournal.clerk.render/re-render))))
+  )
