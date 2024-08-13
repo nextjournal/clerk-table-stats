@@ -1,5 +1,6 @@
 (ns nextjournal.clerk-table-stats-sci
-  (:require [reagent.core]
+  (:require [clojure.string :as str]
+            [reagent.core]
             [nextjournal.clerk.viewer]
             [nextjournal.clerk.render]))
 
@@ -8,7 +9,7 @@
     (let [width 140
           height 30
           last-index (dec (count distribution))
-          filtered-bars (-> (get (:filter @table-state) idx)
+          filtered-bars (-> (get-in (:filter @table-state) [idx :categories])
                             not-empty)]
       [:div
        #_[:pre (pr-str filtered-bars)]
@@ -30,8 +31,8 @@
              [:div.relative.overflow-hidden
               {:on-click #(do
                             (if filtered?
-                              (swap! table-state update :filter update idx disj label)
-                              (swap! table-state update :filter update idx (fnil conj #{}) label)))
+                              (swap! table-state update :filter update-in [idx :categories] disj label)
+                              (swap! table-state update :filter update-in [idx :categories] (fnil conj #{}) label)))
                :on-mouse-enter #(reset! !selected-bar bar)
                :on-mouse-leave #(reset! !selected-bar nil)
                :class (case label
@@ -72,7 +73,7 @@
                                       (>= x 1000000)
                                       (str (.toFixed (/ x 1000000) 0) "M")
                                       :else (str (.toFixed x 0))))]
-    (let [filtered-bars (-> (get (:filter @table-state) idx)
+    (let [filtered-bars (-> (get-in (:filter @table-state) [idx :ranges])
                             not-empty)
           max (:count (apply max-key :count distribution))
           last-index (dec (count distribution))
@@ -104,8 +105,8 @@
                {:style {:height height}}
                [:div.w-full.relative
                 {:on-click #(if filtered?
-                              (swap! table-state update :filter update idx disj bar)
-                              (swap! table-state update :filter update idx (fnil conj #{}) bar))
+                              (swap! table-state update-in [:filter idx :ranges] disj bar)
+                              (swap! table-state update-in [:filter idx :ranges] (fnil conj #{}) bar))
                  :style {:height (* (/ row-count max) height)}
                  :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                           (if selected?
@@ -142,13 +143,14 @@
   [{:as summary :keys [continuous?]} {:keys [table-state idx] :as opts}]
   (let [summary (assoc summary :width 140 :height 30)
         filtered? (get (:filter @table-state) idx)]
+    (prn @table-state)
     [:div.flex
      [:div
       {:class (cond-> ["text-indigo-200"]
                 filtered?
                 (conj "text-black" "cursor-pointer"))
        :on-click #(when filtered?
-                    (swap! table-state update :filter dissoc idx))}
+                    (swap! table-state update-in [:filter idx] dissoc (if continuous? :ranges :categories)))}
       "x"]
      (if continuous?
        [table-col-histogram summary opts]
@@ -156,9 +158,14 @@
 
 (defn table-col-filter [filter {:keys [table-state idx]}]
   [:div
-   [:input.border.shadow-inner.rounded-md.p-1.w-full
+   [:input.border.shadow-inner.rounded-md.p-1.w-full.text-normal
     {:type :text
-     :on-input #()}]])
+     :placeholder "Filter…"
+     :on-input (fn [event]
+                 (let [value (.. event -target -value)]
+                   (if (str/blank? value)
+                     (swap! table-state update-in [:filter idx] dissoc :text)
+                     (swap! table-state assoc-in [:filter idx :text] (str/trim value)))))}]])
 
 (defn table-head-viewer
   [header-row {:as opts :keys [table-state]}]
@@ -204,7 +211,6 @@
                       (when-not (vector? header-cell)
                         [:<>
                          (when-let [filters (:filters opts)]
-                           (prn cell)
                            [table-col-filter (get-in filters cell)
                             {:table-state table-state
                              :idx index}])

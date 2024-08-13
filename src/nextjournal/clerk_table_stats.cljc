@@ -282,16 +282,20 @@
                                                 (let [filters (map #(get filter-spec %) ks)
                                                       values (map #(viewer/->value (nth row %)) ks)]
                                                   (every? true?
-                                                          (map (fn [col-filter col-value]
-                                                                 (or (empty? col-filter)
-                                                                     (if
-                                                                         ;; histogram
-                                                                         (:range (first col-filter))
-                                                                       (some #(let [[from to] (:range %)]
-                                                                                (<= from col-value to))
-                                                                             col-filter)
-                                                                       (contains? col-filter col-value))))
+                                                          (map (fn [col-filters col-value]
+                                                                 (every? (fn [[col-filter-key col-filter]]
+                                                                           (case col-filter-key
+                                                                             :text (str/includes? (str col-value) col-filter)
+                                                                             :ranges (some #(let [[from to] (:range %)]
+                                                                                              (<= from col-value to))
+                                                                                           col-filter)
+                                                                             :categories (contains? col-filter col-value)
+                                                                             :else (empty? col-filter)))
+                                                                         col-filters))
                                                                filters values)))))))))))
+filters*
+col-filters*
+
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
                  (reagent.core/with-let [table-state (if sync-var
