@@ -293,8 +293,6 @@
                                                                              :else (empty? col-filter)))
                                                                          col-filters))
                                                                filters values)))))))))))
-filters*
-col-filters*
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]

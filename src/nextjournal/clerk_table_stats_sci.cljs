@@ -143,7 +143,6 @@
   [{:as summary :keys [continuous?]} {:keys [table-state idx] :as opts}]
   (let [summary (assoc summary :width 140 :height 30)
         filtered? (get (:filter @table-state) idx)]
-    (prn @table-state)
     [:div.flex
      [:div
       {:class (cond-> ["text-indigo-200"]
@@ -156,7 +155,7 @@
        [table-col-histogram summary opts]
        [table-col-bars summary opts])]))
 
-(defn table-col-filter [filter {:keys [table-state idx]}]
+(defn table-col-filter [{:keys [filter table-state idx] :or {filter :text}}]
   [:div
    [:input.border.shadow-inner.rounded-md.p-1.w-full.text-normal
     {:type :text
@@ -210,10 +209,11 @@
                       [:div (get translated-keys k k)]
                       (when-not (vector? header-cell)
                         [:<>
-                         (when-let [filters (:filters opts)]
-                           [table-col-filter (get-in filters cell)
-                            {:table-state table-state
-                             :idx index}])
+                         (let [col-filter (get-in (:filters opts) [k])]
+                           (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
+                             [table-col-filter {:filter col-filter
+                                                :table-state table-state
+                                                :idx index}]))
                          (when-let [summary (:summary opts)]
                            [table-col-summary (get-in summary [k])
                             {:table-state table-state
@@ -225,12 +225,13 @@
               (fn [{:keys [cell idx]}]
                 [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b
                  {:class (if (< 0 idx) "border-l")}
-                 (let [sub-header-key (second cell)]
+                 (let [sub-header-key (second cell)
+                       col-filter (get-in (:filters opts) cell)]
                    [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
-                    (when-let [filters (:filters opts)]
-                      [table-col-filter (get-in filters cell)
-                       {:table-state table-state
-                        :idx idx}])
+                    (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
+                      [table-col-filter {:filter col-filter
+                                         :table-state table-state
+                                         :idx idx}])
                     (when-let [summary (:summary opts)]
                       [table-col-summary (get-in summary cell)
                        {:table-state table-state
