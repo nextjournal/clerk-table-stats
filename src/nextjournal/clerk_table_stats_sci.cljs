@@ -1,11 +1,11 @@
 (ns nextjournal.clerk-table-stats-sci
   (:require [clojure.string :as str]
-            [reagent.core]
+            [reagent.core :as r]
             [nextjournal.clerk.viewer]
             [nextjournal.clerk.render]))
 
 (defn table-col-bars [{:keys [col-type category-count distribution]} {:keys [table-state idx]}]
-  (reagent.core/with-let [!selected-bar (reagent.core/atom nil)]
+  (r/with-let [!selected-bar (r/atom nil)]
     (let [width 140
           height 30
           last-index (dec (count distribution))
@@ -66,7 +66,7 @@
 
 (defn table-col-histogram
   [{:keys [col-type distribution width height]} {:keys [table-state idx]}]
-  (reagent.core/with-let [!selected-bar (reagent.core/atom nil)
+  (r/with-let [!selected-bar (r/atom nil)
                           fmt (fn [x]
                                 (cond (and (>= x 1000) (< x 1000000))
                                       (str (.toFixed (/ x 1000) 0) "K")
@@ -155,16 +155,87 @@
        [table-col-histogram summary opts]
        [table-col-bars summary opts])]))
 
-(defn table-col-filter [{:keys [filter table-state idx] :or {filter :text}}]
-  [:div
-   [:input.border.shadow-inner.rounded-md.p-1.w-full.text-normal
+(defn table-col-filter-text [{:keys [table-state idx]}]
+  [:input.border.shadow-inner.rounded-md.p-1.w-full.text-normal
     {:type :text
      :placeholder "Filter…"
      :on-input (fn [event]
                  (let [value (.. event -target -value)]
                    (if (str/blank? value)
                      (swap! table-state update-in [:filter idx] dissoc :text)
-                     (swap! table-state assoc-in [:filter idx :text] (str/trim value)))))}]])
+                     (swap! table-state assoc-in [:filter idx :text] (str/trim value)))))}])
+
+(defn chevron []
+  [:span.pointer-events-none.absolute.inset-y-0.right-0.flex.items-center.pr-2
+   [:svg {:class "h-5 w-5 text-gray-400"
+          :viewBox "0 0 20 20"
+          :fill "currentColor"
+          :aria-hidden "true"}
+    [:path {:fill-rule "evenodd"
+            :d "M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+            :clip-rule "evenodd"}]]])
+
+(defn checkmark []
+  [:span.absolute.inset-y-0.left-0.flex.items-center.text-indigo-600
+   {:class ["pl-1.5"]}
+   [:svg.h-5.w-5 {:viewBox "0 0 20 20"
+                  :fill "currentColor"
+                  :aria-hidden "true"}
+    [:path
+     {:fill-rule "evenodd"
+      :d
+      "M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+      :clip-rule "evenodd"}]]])
+
+(defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
+  (r/with-let [!expanded (r/atom false)]
+    (let [selected (-> @table-state :filter (get idx) :multiselect (or #{}))]
+      [:div.relative.mt-2.font-normal
+       [:button.relative.w-full.cursor-default.rounded-md.bg-white.pl-3.pr-10.text-left.text-gray-900.shadow-sm.ring-1.ring-inset.ring-gray-300
+        {:type "button"
+         :aria-haspopup "listbox"
+         :aria-expanded "true"
+         :aria-labelledby "listbox-label"
+         :class ["py-1.5"
+                 "focus:outline-none"
+                 "focus:ring-2"
+                 "focus:ring-indigo-600"
+                 "sm:text-sm"
+                 "sm:leading-6"]
+         :on-click (fn [_]
+                     (swap! !expanded not))}
+        (if (empty? selected)
+          [:span.block.text-slate-600 "Filter..."]
+          [:span.block.truncate (str/join ", " selected)])
+        [chevron]]
+       (when @!expanded
+         [:ul.absolute.z-10.mt-1.max-h-60.w-full.overflow-auto.rounded-md.bg-white.py-1.text-base.shadow-lg.ring-1.ring-black.ring-opacity-5
+          {:tabindex "-1"
+           :role "listbox"
+           :aria-labelledby "listbox-label"
+           :aria-activedescendant "listbox-option-3"
+           :class ["focus:outline-none" "sm:text-sm"]}
+          (for [value (:values filter-data)]
+            [:li.relative.cursor-default.select-none.py-2.pl-8.pr-4.text-gray-900.text-left
+             {:role "option"
+              :class ["hover:bg-indigo-100"]
+              :on-click (fn [_]
+                          (if (selected value)
+                            (swap! table-state update-in [:filter idx :multiselect] disj value)
+                            (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value))
+                          (reset! !expanded false))}
+             [:span.block.truncate.font-normal (str value)]
+             (when (selected value)
+               [checkmark])])])])))
+
+(defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
+  [:div
+   (case filter
+     :text
+     [table-col-filter-text opts]
+     
+     :multiselect
+     [table-col-filter-multiselect opts])])
 
 (defn table-head-viewer
   [header-row {:as opts :keys [table-state]}]
@@ -191,7 +262,7 @@
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
                    (let [header-cell (:cell cell)
-                         index (:idx cell)
+                         idx (:idx cell)
                          k (if (vector? header-cell)
                              (first header-cell)
                              header-cell)
@@ -201,7 +272,7 @@
                       (cond-> {:class (str
                                        "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
                                        (when sub-headers "first:border-l-0 ")
-                                       (if (and (ifn? number-col?) (number-col? index)) "text-right " "text-left "))}
+                                       (if (and (ifn? number-col?) (number-col? idx)) "text-right " "text-left "))}
                         (and column-layout (column-layout k)) (assoc :style (column-layout k))
                         (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
                         (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
@@ -212,12 +283,13 @@
                          (let [col-filter (get-in (:filters opts) [k])]
                            (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
                              [table-col-filter {:filter col-filter
+                                                :filter-data (get (:filter-data opts) idx)
                                                 :table-state table-state
-                                                :idx index}]))
+                                                :idx idx}]))
                          (when-let [summary (:summary opts)]
                            [table-col-summary (get-in summary [k])
                             {:table-state table-state
-                             :idx index}])])])))
+                             :idx idx}])])])))
            header-cells)
      (when-not (empty? sub-headers)
        (into [:tr.print:border-b-2.print:border-black]
@@ -226,10 +298,12 @@
                 [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b
                  {:class (if (< 0 idx) "border-l")}
                  (let [sub-header-key (second cell)
-                       col-filter (get-in (:filters opts) cell)]
-                   [:<> (get (:translated-keys opts {}) sub-header-key sub-header-key)
+                       col-filter (get (:filters opts) cell)]
+                   [:<>
+                    (get (:translated-keys opts {}) sub-header-key sub-header-key)
                     (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
                       [table-col-filter {:filter col-filter
+                                         :filter-data (get (:filter-data opts) idx)
                                          :table-state table-state
                                          :idx idx}])
                     (when-let [summary (:summary opts)]

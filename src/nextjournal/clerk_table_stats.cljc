@@ -253,6 +253,23 @@
                                         {})
                                 )))))
 
+(defn compute-filters-data [{:as data :keys [rows visible-paths]}
+                            {:as opts}]
+  ; (clojure.pprint/pprint data)
+  (reduce-kv
+   (fn [data filter-path filter-type]
+     (let [filter-path (if (vector? filter-path) filter-path [filter-path])
+           idx         (.indexOf visible-paths filter-path)]
+       (if (neg? idx)
+         data
+         (case filter-type
+           :multiselect
+           (let [values (into #{} (map #(nth % idx)) rows)]
+             (update data :filter-data assoc idx {:values values}))
+           #_else
+           data))))
+   data (:filters opts)))
+
 (comment
   (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])
   (compute-col-summary [1 1 1 5 2 2 0 0 1 40 51 21])
@@ -276,6 +293,7 @@
              (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
              :else nil)
      stats (compute-table-summary opts)
+     filter-spec (compute-filters-data opts)
      true (update :rows (partial filter (fn [row]
                                           (let [ks (keys filter-spec)]
                                             (or (empty? ks)
@@ -285,12 +303,21 @@
                                                           (map (fn [col-filters col-value]
                                                                  (every? (fn [[col-filter-key col-filter]]
                                                                            (case col-filter-key
-                                                                             :text (str/includes? (str col-value) col-filter)
-                                                                             :ranges (some #(let [[from to] (:range %)]
+                                                                             :text
+                                                                             (str/includes? (str col-value) col-filter)
+                                                                             
+                                                                             :ranges
+                                                                             (some #(let [[from to] (:range %)]
                                                                                               (<= from col-value to))
                                                                                            col-filter)
-                                                                             :categories (contains? col-filter col-value)
-                                                                             :else (empty? col-filter)))
+                                                                             
+                                                                             (:categories :multiselect)
+                                                                             (or
+                                                                               (empty? col-filter)
+                                                                               (contains? col-filter col-value))
+                                                                             
+                                                                             :else
+                                                                             (empty? col-filter)))
                                                                          col-filters))
                                                                filters values)))))))))))
 
@@ -354,13 +381,16 @@
                  _ #?(:clj (when-not (resolve var-name)
                             (when-some [ns' (find-ns (symbol (namespace var-name)))]
                               (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
-                                                                     (add-watch :foo (fn [_k _r _o _n] (nextjournal.clerk/recompute!)))))))
+                                                                     (add-watch ::recompute
+                                                                       (fn [_ _ _ _]
+                                                                         (nextjournal.clerk/recompute!)))))))
                       :cljs nil)
                  table-state #?(:clj @@(resolve var-name)
                                 :cljs nil)]
 
-             (if-let [{:keys [head rows summary state]} (normalize-table-data (merge render-opts table-state)
-                                                                              (viewer/->value wrapped-value))]
+             (if-let [{:keys [head rows summary filter-data state]}
+                      (normalize-table-data (merge render-opts table-state)
+                                            (viewer/->value wrapped-value))]
                (-> wrapped-value
                    (assoc :nextjournal/viewer table-markup-viewer)
                    (update :nextjournal/width #(or % :wide))
@@ -373,8 +403,8 @@
                                                                                     (keep #(when (number? (second %)) (first %))))
                                                                               (not-empty (first rows)))
                                                            :summary summary
-                                                           :state state
-                                                           })
+                                                           :filter-data filter-data
+                                                           :state state})
                    (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)
                    (assoc :nextjournal/value (cond->> []
                                                (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
