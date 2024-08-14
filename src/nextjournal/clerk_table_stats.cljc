@@ -331,7 +331,7 @@
                                                        (deref sync-var)
                                                        #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
                                                           :cljs nil))]
-                   [:div.bg-white.rounded-lg.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
+                   [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
                     {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
                     (into
                      [:table.w-full]

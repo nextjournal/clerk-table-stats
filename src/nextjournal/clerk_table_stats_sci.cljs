@@ -1,6 +1,7 @@
 (ns nextjournal.clerk-table-stats-sci
   (:require [clojure.string :as str]
             [reagent.core :as r]
+            [nextjournal.clerk.render.hooks :as hooks]
             [nextjournal.clerk.viewer]
             [nextjournal.clerk.render]))
 
@@ -158,9 +159,9 @@
        [table-col-bars summary opts])]))
 
 (defn table-col-filter-text [{:keys [table-state idx]}]
-  [:input.relative.w-full.cursor-default.rounded-md.pl-3.pr-10.text-left.shadow-sm.ring-1.ring-slate-300.font-normal
+  [:input.relative.w-full.cursor-default.rounded.px-2.shadow-sm.ring-1.ring-slate-300.font-normal
    {:class ["placeholder-slate-400"
-            "py-1"
+            "py-0.5"
             "focus:outline-none"
             "focus:ring-2"
             "focus:ring-blue-500"
@@ -185,21 +186,21 @@
             :d "M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
             :clip-rule "evenodd"}]]])
 
-(defn checkmark []
-  [:svg {:xmlns "http://www.w3.org/2000/svg"
-         :fill "none"
-         :viewBox "0 0 24 24"
-         :stroke-width "3"
-         :stroke "currentColor"}
-   [:path {:stroke-linecap "round"
-           :stroke-linejoin "round"
-           :d "m4.5 12.75 6 6 9-13.5"}]])
+(defn checkbox [checked?]
+  [:input.size-4.appearance-none.rounded.border
+   {:type :checkbox
+    :checked? (boolean checked?)
+    :class (if checked?
+             ["border-blue-500" "bg-blue-500" "bg-contain" "bg-no-repeat"]
+             ["border-slate-200" "bg-white"])
+    :style (when checked?
+             {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
 
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
   (r/with-let [!expanded (r/atom false)]
     (let [selected (-> @table-state :filter (get idx) :multiselect (or #{}))]
       [:div.relative.font-normal
-       [:button.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
+       [:button.block.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
         {:type "button"
          :aria-haspopup "listbox"
          :aria-expanded "true"
@@ -216,12 +217,14 @@
                    "bg-slate-100"
                    "bg-white")]
          :on-click (fn [_]
-                     (swap! !expanded not))}
+                     (swap! !expanded not))
+         :on-blur  (fn [_]
+                     (reset! !expanded false))}
         (if (empty? selected)
-          [:span.block.text-slate-400 "Filter..."]
+          [:span.block.truncate.text-slate-400 "Filter..."]
           [:span.block.truncate (str/join ", " selected)])
         [chevron]]
-       (when true #_@!expanded
+       (when @!expanded
          [:ul.absolute.z-10.mt-1.rounded.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300
           {:tabindex "-1"
            :role "listbox"
@@ -231,20 +234,21 @@
           (for [value (:values filter-data)]
             [:li.cursor-default.select-none.flex
              {:role "option"
-              :class ["px-2"
+              :class ["pl-2"
+                      "pr-3"
                       "py-0.5"
                       "gap-1.5"
                       "hover:bg-slate-200"
                       "sm:text-sm"
                       "sm:leading-6"]
-              :on-click (fn [_]
-                          (if (selected value)
-                            (swap! table-state update-in [:filter idx :multiselect] disj value)
-                            (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value))
-                          (reset! !expanded false))}
-             [:span.text-slate-600.w-4.flex.items-center
-              (when (selected value)
-                [checkmark])]
+              :on-pointer-down
+              (fn [_]
+                (if (selected value)
+                  (swap! table-state update-in [:filter idx :multiselect] disj value)
+                  (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value))
+                (reset! !expanded false))}
+             [:span.flex.items-center
+              [checkbox (selected value)]]
              (str value)])])])))
 
 (defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
@@ -276,8 +280,17 @@
         sub-headers (seq (filter :sub cells))
         header-cells (map (fn [cell]
                             {:idx (get cell->idx cell)
-                             :cell cell}) cells*)]
-    [:thead
+                             :cell cell}) cells*)
+        !thead       (hooks/use-ref nil)]
+    (hooks/use-effect
+      (fn []
+        (let [thead @!thead]
+          (doseq [tr (.-children thead)
+                  th (.-children tr)]
+            (set! (.-width (.-style th)) (str (.-offsetWidth th) "px"))
+            (set! (.-maxWidth (.-style th)) (str (.-offsetWidth th) "px")))
+        )))
+    [:thead {:ref !thead}
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
                    (let [header-cell (:cell cell)
@@ -287,7 +300,7 @@
                              header-cell)
                          title (when (or (string? k) (keyword? k) (symbol? k)) k)
                          {:keys [translated-keys column-layout number-col?] :or {translated-keys {}}} opts]
-                     [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b
+                     [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b.align-bottom
                       (cond-> {:class ["print:text-[10px]"
                                        "print:bg-transparent"
                                        "print:px-[5px]"
@@ -317,7 +330,7 @@
        (into [:tr.print:border-b-2.print:border-black]
              (map
               (fn [{:keys [cell idx]}]
-                [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b
+                [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b.align-bottom
                  {:class (if (< 0 idx) "border-l")}
                  (let [sub-header-key (second cell)
                        col-filter (get (:filters opts) cell)]
