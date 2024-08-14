@@ -7,8 +7,6 @@
             [clojure.set :as set]
             [clojure.string :as str]))
 
-(clerk/require-cljs 'nextjournal.clerk-table-stats-sci)
-
 (defn deep-merge
   ([])
   ([a] a)
@@ -340,13 +338,15 @@
                      head+body)]))})
 
 (def table-head-viewer
-  {:render-fn 'nextjournal.clerk-table-stats-sci/table-head-viewer})
+  {:require-cljs true
+   :render-fn 'nextjournal.clerk-table-stats-sci/table-head-viewer})
 
 (def table-body-viewer
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:render-fn 'nextjournal.clerk-table-stats-sci/table-row-viewer})
+  {:require-cljs true
+   :render-fn 'nextjournal.clerk-table-stats-sci/table-row-viewer})
 
 (defn tabular? [xs]
   (and (seqable? xs)
