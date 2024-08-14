@@ -19,4 +19,5 @@
    {:id 5 :location {:country :germany :city "Berlin"} :value 22}
    {:id 6 :location {:country :usa :city "New York"} :value 11}
    {:id 7 :location {:country :usa :city "San Francisco"} :value 12}
-   {:id 8 :location {:country :usa :city "San Francisco"} :value 22}])
+   {:id 8 :location {:country :australia :city "Melburn"} :value 22}
+   {:id 8 :location {:country :republic-of-the-congo :city "Brazzaville"} :value 22}])

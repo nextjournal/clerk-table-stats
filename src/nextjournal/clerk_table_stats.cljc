@@ -304,12 +304,16 @@
                                                                  (every? (fn [[col-filter-key col-filter]]
                                                                            (case col-filter-key
                                                                              :text
-                                                                             (str/includes? (str col-value) col-filter)
+                                                                             (str/includes?
+                                                                               (str/lower-case (str col-value))
+                                                                               (str/lower-case col-filter))
                                                                              
                                                                              :ranges
-                                                                             (some #(let [[from to] (:range %)]
-                                                                                              (<= from col-value to))
-                                                                                           col-filter)
+                                                                             (or
+                                                                               (empty? col-filter)
+                                                                               (some #(let [[from to] (:range %)]
+                                                                                                (<= from col-value to))
+                                                                                             col-filter))
                                                                              
                                                                              (:categories :multiselect)
                                                                              (or

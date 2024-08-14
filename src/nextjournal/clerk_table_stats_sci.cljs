@@ -142,7 +142,9 @@
 (defn table-col-summary
   [{:as summary :keys [continuous?]} {:keys [table-state idx] :as opts}]
   (let [summary (assoc summary :width 140 :height 30)
-        filtered? (get (:filter @table-state) idx)]
+        filtered? (if continuous?
+                    (not-empty (get-in @table-state [:filter idx :ranges]))
+                    (not-empty (get-in @table-state [:filter idx :categories])))]
     [:div.flex
      [:div
       {:class (cond-> ["text-indigo-200"]
@@ -156,18 +158,26 @@
        [table-col-bars summary opts])]))
 
 (defn table-col-filter-text [{:keys [table-state idx]}]
-  [:input.border.shadow-inner.rounded-md.p-1.w-full.text-normal
-    {:type :text
-     :placeholder "Filter…"
-     :on-input (fn [event]
-                 (let [value (.. event -target -value)]
-                   (if (str/blank? value)
-                     (swap! table-state update-in [:filter idx] dissoc :text)
-                     (swap! table-state assoc-in [:filter idx :text] (str/trim value)))))}])
+  [:input.relative.w-full.cursor-default.rounded-md.pl-3.pr-10.text-left.shadow-sm.ring-1.ring-slate-300.font-normal
+   {:class ["placeholder-slate-400"
+            "py-1"
+            "focus:outline-none"
+            "focus:ring-2"
+            "focus:ring-blue-500"
+            "sm:text-sm"
+            "sm:leading-6"
+            "bg-white"]
+    :type :text
+    :placeholder "Filter…"
+    :on-input (fn [event]
+                (let [value (.. event -target -value)]
+                  (if (str/blank? value)
+                    (swap! table-state update-in [:filter idx] dissoc :text)
+                    (swap! table-state assoc-in [:filter idx :text] (str/trim value)))))}])
 
 (defn chevron []
-  [:span.pointer-events-none.absolute.inset-y-0.right-0.flex.items-center.pr-2
-   [:svg {:class "h-5 w-5 text-gray-400"
+  [:span.pointer-events-none.absolute.inset-y-0.right-0.flex.items-center.pr-1
+   [:svg {:class "h-5 w-5 text-slate-400"
           :viewBox "0 0 20 20"
           :fill "currentColor"
           :aria-hidden "true"}
@@ -176,57 +186,66 @@
             :clip-rule "evenodd"}]]])
 
 (defn checkmark []
-  [:span.absolute.inset-y-0.left-0.flex.items-center.text-indigo-600
-   {:class ["pl-1.5"]}
-   [:svg.h-5.w-5 {:viewBox "0 0 20 20"
-                  :fill "currentColor"
-                  :aria-hidden "true"}
-    [:path
-     {:fill-rule "evenodd"
-      :d
-      "M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-      :clip-rule "evenodd"}]]])
+  [:svg {:xmlns "http://www.w3.org/2000/svg"
+         :fill "none"
+         :viewBox "0 0 24 24"
+         :stroke-width "3"
+         :stroke "currentColor"}
+   [:path {:stroke-linecap "round"
+           :stroke-linejoin "round"
+           :d "m4.5 12.75 6 6 9-13.5"}]])
 
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
   (r/with-let [!expanded (r/atom false)]
     (let [selected (-> @table-state :filter (get idx) :multiselect (or #{}))]
-      [:div.relative.mt-2.font-normal
-       [:button.relative.w-full.cursor-default.rounded-md.bg-white.pl-3.pr-10.text-left.text-gray-900.shadow-sm.ring-1.ring-inset.ring-gray-300
+      [:div.relative.font-normal
+       [:button.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
         {:type "button"
          :aria-haspopup "listbox"
          :aria-expanded "true"
          :aria-labelledby "listbox-label"
-         :class ["py-1.5"
+         :class ["pl-2"
+                 "pr-7"
+                 "py-0.5"
                  "focus:outline-none"
                  "focus:ring-2"
-                 "focus:ring-indigo-600"
+                 "focus:ring-blue-500"
                  "sm:text-sm"
-                 "sm:leading-6"]
+                 "sm:leading-6"
+                 (if @!expanded
+                   "bg-slate-100"
+                   "bg-white")]
          :on-click (fn [_]
                      (swap! !expanded not))}
         (if (empty? selected)
-          [:span.block.text-slate-600 "Filter..."]
+          [:span.block.text-slate-400 "Filter..."]
           [:span.block.truncate (str/join ", " selected)])
         [chevron]]
-       (when @!expanded
-         [:ul.absolute.z-10.mt-1.max-h-60.w-full.overflow-auto.rounded-md.bg-white.py-1.text-base.shadow-lg.ring-1.ring-black.ring-opacity-5
+       (when true #_@!expanded
+         [:ul.absolute.z-10.mt-1.rounded.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300
           {:tabindex "-1"
            :role "listbox"
            :aria-labelledby "listbox-label"
            :aria-activedescendant "listbox-option-3"
            :class ["focus:outline-none" "sm:text-sm"]}
           (for [value (:values filter-data)]
-            [:li.relative.cursor-default.select-none.py-2.pl-8.pr-4.text-gray-900.text-left
+            [:li.cursor-default.select-none.flex
              {:role "option"
-              :class ["hover:bg-indigo-100"]
+              :class ["px-2"
+                      "py-0.5"
+                      "gap-1.5"
+                      "hover:bg-slate-200"
+                      "sm:text-sm"
+                      "sm:leading-6"]
               :on-click (fn [_]
                           (if (selected value)
                             (swap! table-state update-in [:filter idx :multiselect] disj value)
                             (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value))
                           (reset! !expanded false))}
-             [:span.block.truncate.font-normal (str value)]
-             (when (selected value)
-               [checkmark])])])])))
+             [:span.text-slate-600.w-4.flex.items-center
+              (when (selected value)
+                [checkmark])]
+             (str value)])])])))
 
 (defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
   [:div
@@ -269,27 +288,30 @@
                          title (when (or (string? k) (keyword? k) (symbol? k)) k)
                          {:keys [translated-keys column-layout number-col?] :or {translated-keys {}}} opts]
                      [:th.text-slate-600.text-xs.px-4.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b
-                      (cond-> {:class (str
-                                       "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                                       (when sub-headers "first:border-l-0 ")
-                                       (if (and (ifn? number-col?) (number-col? idx)) "text-right " "text-left "))}
-                        (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                        (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
-                        (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
-                        title (assoc :title title))
-                      [:div (get translated-keys k k)]
-                      (when-not (vector? header-cell)
-                        [:<>
-                         (let [col-filter (get-in (:filters opts) [k])]
-                           (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
-                             [table-col-filter {:filter col-filter
-                                                :filter-data (get (:filter-data opts) idx)
-                                                :table-state table-state
-                                                :idx idx}]))
-                         (when-let [summary (:summary opts)]
-                           [table-col-summary (get-in summary [k])
-                            {:table-state table-state
-                             :idx idx}])])])))
+                      (cond-> {:class ["print:text-[10px]"
+                                       "print:bg-transparent"
+                                       "print:px-[5px]"
+                                       "print:py-[2px]"
+                                       (when sub-headers
+                                         "first:border-l-0 ")]}
+                         (and column-layout (column-layout k)) (assoc :style (column-layout k))
+                         (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
+                         (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
+                         title (assoc :title title))
+                      [:div.flex.flex-col.gap-1
+                       [:div (get translated-keys k k)]
+                       (when-not (vector? header-cell)
+                         [:<>
+                          (let [col-filter (get-in (:filters opts) [k])]
+                            (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
+                              [table-col-filter {:filter col-filter
+                                                 :filter-data (get (:filter-data opts) idx)
+                                                 :table-state table-state
+                                                 :idx idx}]))
+                          (when-let [summary (:summary opts)]
+                            [table-col-summary (get-in summary [k])
+                             {:table-state table-state
+                              :idx idx}])])]])))
            header-cells)
      (when-not (empty? sub-headers)
        (into [:tr.print:border-b-2.print:border-black]
@@ -299,7 +321,7 @@
                  {:class (if (< 0 idx) "border-l")}
                  (let [sub-header-key (second cell)
                        col-filter (get (:filters opts) cell)]
-                   [:<>
+                   [:div.flex.flex-col.gap-1
                     (get (:translated-keys opts {}) sub-header-key sub-header-key)
                     (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
                       [table-col-filter {:filter col-filter
@@ -314,14 +336,19 @@
 
 (defn table-row-viewer
   [row {:as opts :keys [path number-col?]}]
-  (into [:tr.print:border-b-gray-500.hover:bg-gray-200.print:hover:bg-transparent
+  (into [:tr.print:border-b-gray-500.hover:bg-slate-200.print:hover:bg-transparent.group
          {:class (str "print:border-b-[1px] "
                       (if (even? (peek path)) "bg-white" "bg-slate-50"))}]
         (map-indexed
          (fn [idx cell]
-           [:td.px-4.py-2.text-sm.border-r.last:border-r-0
-            {:class (str "print:text-[10px] print:bg-transparent print:px-[5px] print:py-[2px] "
-                         (when (and (ifn? number-col?) (number-col? idx)) "text-right"))}
+           [:td.px-2.text-sm.border-r.last:border-r-0.group-hover:border-slate-300
+            {:class ["py-1.5"
+                     "print:text-[10px]"
+                     "print:bg-transparent"
+                     "print:px-[5px]"
+                     "print:py-[2px]"
+                     (when (and (ifn? number-col?) (number-col? idx))
+                       "text-right")]}
             (nextjournal.clerk.render/inspect-presented opts cell)]))
         row))
 
