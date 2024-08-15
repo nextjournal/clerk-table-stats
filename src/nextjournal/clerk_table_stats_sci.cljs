@@ -196,15 +196,34 @@
     :style (when checked?
              {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
 
+(defn child? [node parent]
+  (loop [node node]
+    (cond
+      (identical? node parent)
+      true
+
+      (nil? node)
+      false
+
+      :else
+      (recur (.-parentNode node)))))
+
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
   (r/with-let [!expanded (r/atom false)]
-    (let [selected (-> @table-state :filter (get idx) :multiselect (or #{}))]
+    (let [!ul-ref  (hooks/use-ref nil)
+          selected (-> @table-state :filter (get idx) :multiselect (or #{}))]
+      (hooks/use-effect
+       (fn []
+         (let [on-click (fn [event]
+                          (when-not (child? (.-target event) @!ul-ref)
+                            (reset! !expanded false)))]
+           (js/document.addEventListener "click" on-click)
+           #(js/document.removeEventListener "click" on-click))))
       [:div.relative.font-normal
        [:button.block.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
         {:type "button"
          :aria-haspopup "listbox"
-         :aria-expanded "true"
-         :aria-labelledby "listbox-label"
+         :aria-expanded (str (boolean @!expanded))
          :class ["pl-2"
                  "pr-7"
                  "py-0.5"
@@ -217,21 +236,18 @@
                    "bg-slate-100"
                    "bg-white")]
          :on-click (fn [_]
-                     (swap! !expanded not))
-         :on-blur  (fn [_]
-                     (reset! !expanded false))}
+                     (swap! !expanded not))}
         (if (empty? selected)
           [:span.block.truncate.text-slate-400 "Filter..."]
           [:span.block.truncate (str/join ", " selected)])
         [chevron]]
        (when @!expanded
          [:ul.absolute.z-10.mt-1.rounded.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300
-          {:tabindex "-1"
+          {:ref !ul-ref
+           :tabindex "-1"
            :role "listbox"
-           :aria-labelledby "listbox-label"
-           :aria-activedescendant "listbox-option-3"
            :class ["focus:outline-none" "sm:text-sm"]}
-          (for [value (:values filter-data)]
+          (for [value (sort (:values filter-data))]
             [:li.cursor-default.select-none.flex
              {:role "option"
               :class ["pl-2"
@@ -245,8 +261,7 @@
               (fn [_]
                 (if (selected value)
                   (swap! table-state update-in [:filter idx :multiselect] disj value)
-                  (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value))
-                (reset! !expanded false))}
+                  (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value)))}
              [:span.flex.items-center
               [checkbox (selected value)]]
              (str value)])])])))

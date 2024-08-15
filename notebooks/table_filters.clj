@@ -24,7 +24,7 @@
 
 ; - [ ] checkbox filter
 ; - [ ] regex filter
-; - [ ] do not close popup after first selection
+; - [x] do not close popup after first selection
 ; - [x] use checkboxes instead of checkmarks
 ; - [ ] type inside multiselect
 ; - [ ] arrow keys in multiselect
