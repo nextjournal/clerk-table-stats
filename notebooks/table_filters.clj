@@ -28,7 +28,8 @@
 ; - [x] use checkboxes instead of checkmarks
 ; - [ ] type inside multiselect
 ; - [ ] arrow keys in multiselect
-; - [ ] Portal for popup
+; - [x] Portal for popup
+; - [x] Scroll dropdown content if it doesn’t fit on screen
 ; - [ ] Make ranges/histogram pretty
 ; - [ ] :unique doesn’t work
 ; - [ ] Resize should go into react tree

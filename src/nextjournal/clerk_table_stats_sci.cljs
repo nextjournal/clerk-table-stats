@@ -1,5 +1,6 @@
 (ns nextjournal.clerk-table-stats-sci
   (:require [clojure.string :as str]
+            ["react-dom" :as react-dom]
             [reagent.core :as r]
             [nextjournal.clerk.render.hooks :as hooks]
             [nextjournal.clerk.viewer]
@@ -192,36 +193,52 @@
     :checked? (boolean checked?)
     :class (if checked?
              ["border-blue-500" "bg-blue-500" "bg-contain" "bg-no-repeat"]
-             ["border-slate-200" "bg-white"])
+             ["border-slate-300" "bg-white"])
     :style (when checked?
              {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
 
-(defn child? [node parent]
+(defn find-parent [node pred]
   (loop [node node]
     (cond
-      (identical? node parent)
-      true
+      (pred node)
+      node
 
       (nil? node)
-      false
+      nil
 
       :else
       (recur (.-parentNode node)))))
 
+(defn child? [node parent]
+  (boolean
+    (find-parent node #(identical? % parent))))
+
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
-  (r/with-let [!expanded (r/atom false)]
-    (let [!ul-ref  (hooks/use-ref nil)
-          selected (-> @table-state :filter (get idx) :multiselect (or #{}))]
+  (r/with-let [!expanded    (r/atom false)
+               !portal-root (atom nil)]
+    (let [!button-ref (hooks/use-ref nil)
+          !popup-ref  (hooks/use-ref nil)
+          selected    (-> @table-state :filter (get idx) :multiselect (or #{}))]
       (hooks/use-effect
        (fn []
          (let [on-click (fn [event]
-                          (when-not (child? (.-target event) @!ul-ref)
+                          (cond
+                            (child? (.-target event) @!button-ref)
+                            (swap! !expanded not)
+
+                            (and @!expanded
+                                 (not (child? (.-target event) @!popup-ref)))
                             (reset! !expanded false)))]
            (js/document.addEventListener "click" on-click)
-           #(js/document.removeEventListener "click" on-click))))
-      [:div.relative.font-normal
-       [:button.block.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
-        {:type "button"
+           #(js/document.removeEventListener "click" on-click))
+         (reset! !portal-root
+                 (-> @!button-ref
+                     (find-parent  #(-> % .-classList (.contains "result-viewer")))
+                     (.querySelector ".relative")))))
+      [:<>
+       [:button.block.font-normal.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
+        {:ref !button-ref
+         :type "button"
          :aria-haspopup "listbox"
          :aria-expanded (str (boolean @!expanded))
          :class ["pl-2"
@@ -234,37 +251,45 @@
                  "sm:leading-6"
                  (if @!expanded
                    "bg-slate-100"
-                   "bg-white")]
-         :on-click (fn [_]
-                     (swap! !expanded not))}
+                   "bg-white")]}
         (if (empty? selected)
           [:span.block.truncate.text-slate-400 "Filter..."]
           [:span.block.truncate (str/join ", " selected)])
         [chevron]]
        (when @!expanded
-         [:ul.absolute.z-10.mt-1.rounded.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300
-          {:ref !ul-ref
-           :tabindex "-1"
-           :role "listbox"
-           :class ["focus:outline-none" "sm:text-sm"]}
-          (for [value (sort (:values filter-data))]
-            [:li.cursor-default.select-none.flex
-             {:role "option"
-              :class ["pl-2"
-                      "pr-3"
-                      "py-0.5"
-                      "gap-1.5"
-                      "hover:bg-slate-200"
-                      "sm:text-sm"
-                      "sm:leading-6"]
-              :on-pointer-down
-              (fn [_]
-                (if (selected value)
-                  (swap! table-state update-in [:filter idx :multiselect] disj value)
-                  (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value)))}
-             [:span.flex.items-center
-              [checkbox (selected value)]]
-             (str value)])])])))
+         (react-dom/createPortal
+          (r/as-element
+           [:ul.absolute.z-10.rounded.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300.not-prose.overflow-y-scroll
+            {:ref !popup-ref
+             :tabindex "-1"
+             :role "listbox"
+             :class ["focus:outline-none" "sm:text-sm"]
+             :style (let [button @!button-ref
+                          bottom (+ (.-offsetTop button)
+                                    (.-offsetHeight button))]
+                      {:left       (.-offsetLeft button)
+                       :top        (str "calc(" bottom "px + 0.25rem)")
+                       :min-width  (.-offsetWidth button)
+                       :max-height "50svh"})}
+            (for [value (sort (:values filter-data))]
+              [:li.cursor-default.select-none.flex
+               {:role "option"
+                :class ["pl-2"
+                        "pr-3"
+                        "py-0.5"
+                        "gap-1.5"
+                        "hover:bg-slate-200"
+                        "sm:text-sm"
+                        "sm:leading-6"]
+                :on-pointer-down
+                (fn [_]
+                  (if (selected value)
+                    (swap! table-state update-in [:filter idx :multiselect] disj value)
+                    (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value)))}
+               [:span.flex.items-center
+                [checkbox (selected value)]]
+               (str value)])])
+          @!portal-root))])))
 
 (defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
   [:div
