@@ -301,7 +301,7 @@
                                                           (map (fn [col-filters col-value]
                                                                  (every? (fn [[col-filter-key col-filter]]
                                                                            (case col-filter-key
-                                                                             :text
+                                                                             :substring
                                                                              (str/includes?
                                                                                (str/lower-case (str col-value))
                                                                                (str/lower-case col-filter))
@@ -313,7 +313,7 @@
                                                                                                 (<= from col-value to))
                                                                                              col-filter))
                                                                              
-                                                                             (:categories :multiselect)
+                                                                             :one-of
                                                                              (or
                                                                                (empty? col-filter)
                                                                                (contains? col-filter col-value))
@@ -401,12 +401,13 @@
                    (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
                                                            #?@(:clj [:sync-var (viewer/->viewer-eval
                                                                                 (list 'nextjournal.clerk.render/intern-atom!
-                                                                                    (list 'quote var-name) {:filter {} :init 2}))])
+                                                                                    (list 'quote var-name) table-state))])
                                                            :number-col? (into #{}
                                                                               (comp (map-indexed vector)
                                                                                     (keep #(when (number? (second %)) (first %))))
                                                                               (not-empty (first rows)))
                                                            :summary summary
+                                                           :initial-table-state table-state
                                                            :filter-data filter-data
                                                            :state state})
                    (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)

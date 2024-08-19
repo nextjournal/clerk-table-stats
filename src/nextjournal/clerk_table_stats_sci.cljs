@@ -11,10 +11,8 @@
     (let [width 140
           height 30
           last-index (dec (count distribution))
-          filtered-bars (-> (get-in (:filter @table-state) [idx :categories])
-                            not-empty)]
+          selected (-> @table-state :filter (get idx) :one-of (or #{}))]
       [:div
-       #_[:pre (pr-str filtered-bars)]
        [:div.text-slate-500.dark:text-slate-400.font-normal
         {:class "text-[12px] h-[24px] leading-[24px]"}
         (if-let [{:keys [count percentage]} @!selected-bar]
@@ -27,25 +25,34 @@
         (map-indexed
          (fn [i {:as bar :keys [label percentage]}]
            (let [bar-width (* width percentage)
-                 filtered? (contains? filtered-bars label)
-                 selected? (or (= @!selected-bar bar)
-                               filtered?)]
-             [:div.relative.overflow-hidden
+                 filtered? (contains? selected label)
+                 selected? (= @!selected-bar bar)]
+             [:div.relative.overflow-hidden.text-slate-500.dark:text-slate-300.font-normal
               {:on-click #(do
                             (if filtered?
-                              (swap! table-state update :filter update-in [idx :categories] disj label)
-                              (swap! table-state update :filter update-in [idx :categories] (fnil conj #{}) label)))
+                              (swap! table-state update :filter update-in [idx :one-of] disj label)
+                              (swap! table-state update :filter update-in [idx :one-of] (fnil conj #{}) label)))
                :on-mouse-enter #(reset! !selected-bar bar)
                :on-mouse-leave #(reset! !selected-bar nil)
-               :class (case label
-                        :unique "bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 "
-                        :empty "bg-orange-200 hover:bg-orange-300 dark:bg-pink-900 dark:bg-opacity-[0.7] dark:hover:bg-pink-800 "
-                        (cond-> ["bg-indigo-200 hover:bg-indigo-300 dark:bg-sky-700 dark:hover:bg-sky-500"]
-                          selected? (conj "bg-indigo-400")))
+               :class (cond
+                        (and (empty? selected) (= :unique label))
+                        ["bg-gray-300" "hover:bg-[#3B5FC0]" "hover:text-white" "dark:bg-gray-800" "dark:hover:bg-gray-700"]
+                        
+                        (= :empty label)
+                        ["bg-orange-200" "hover:bg-orange-300" "dark:bg-pink-900" "dark:bg-opacity-[0.7]" "dark:hover:bg-pink-800"]
+                        
+                        (empty? selected)
+                        ["bg-[#889DD7]" "hover:bg-[#3B5FC0]" "text-white" "dark:bg-sky-700" "dark:hover:bg-sky-500"]
+                        
+                        filtered?
+                        ["bg-[#889DD7]" "hover:bg-[#3B5FC0]" "text-white" "dark:bg-sky-700" "dark:hover:bg-sky-500"]
+                        
+                        :else
+                        ["bg-gray-300" "hover:bg-[#3B5FC0]" "hover:text-white" "dark:bg-gray-800" "dark:hover:bg-gray-700"])
                :style {:width bar-width
                        :height height}}
               (when (and (contains? #{:unique :empty} label) (< 30 bar-width))
-                [:div.text-slate-500.dark:text-slate-300.font-normal.absolute.left-0.top-0.right-0.bottom-0.flex.items-center.justify-center.whitespace-nowrap
+                [:div.absolute.left-0.top-0.right-0.bottom-0.flex.items-center.justify-center.whitespace-nowrap
                  {:class "text-[12px]"}
                  (str (.toFixed (* 100 percentage) 2) "%"
                       (when (and (= :unique label) (< 80 bar-width))
@@ -146,46 +153,36 @@
   (let [summary (assoc summary :width 140 :height 30)
         filtered? (if continuous?
                     (not-empty (get-in @table-state [:filter idx :ranges]))
-                    (not-empty (get-in @table-state [:filter idx :categories])))]
+                    (not-empty (get-in @table-state [:filter idx :one-of])))]
     [:div.flex
      [:div
       {:class (cond-> ["text-indigo-200"]
                 filtered?
                 (conj "text-black" "cursor-pointer"))
        :on-click #(when filtered?
-                    (swap! table-state update-in [:filter idx] dissoc (if continuous? :ranges :categories)))}
+                    (swap! table-state update-in [:filter idx] dissoc (if continuous? :ranges :one-of)))}
       "x"]
      (if continuous?
        [table-col-histogram summary opts]
        [table-col-bars summary opts])]))
 
-(defn table-col-filter-text [{:keys [table-state idx]}]
-  [:input.relative.w-full.cursor-default.rounded.px-2.shadow-sm.ring-1.ring-slate-300.font-normal
-   {:class ["placeholder-slate-400"
-            "py-0.5"
-            "focus:outline-none"
-            "focus:ring-2"
-            "focus:ring-blue-500"
-            "sm:text-sm"
-            "sm:leading-6"
-            "bg-white"]
-    :type :text
-    :placeholder "Filter…"
-    :on-input (fn [event]
-                (let [value (.. event -target -value)]
-                  (if (str/blank? value)
-                    (swap! table-state update-in [:filter idx] dissoc :text)
-                    (swap! table-state assoc-in [:filter idx :text] (str/trim value)))))}])
+(defn icon-chevron []
+  [:svg {:class "h-5 w-5 text-slate-400"
+         :viewBox "0 0 20 20"
+         :fill "currentColor"
+         :aria-hidden "true"}
+   [:path {:d "M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+           :fill-rule "evenodd"
+           :clip-rule "evenodd"}]])
 
-(defn chevron []
-  [:span.pointer-events-none.absolute.inset-y-0.right-0.flex.items-center.pr-1
-   [:svg {:class "h-5 w-5 text-slate-400"
-          :viewBox "0 0 20 20"
-          :fill "currentColor"
-          :aria-hidden "true"}
-    [:path {:fill-rule "evenodd"
-            :d "M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-            :clip-rule "evenodd"}]]])
+(defn icon-reset []
+  [:svg {:class "h-5 w-5 text-slate-400"
+         :viewBox "0 0 20 20"
+         :stroke "currentColor"
+         :stroke-width "1.5"
+         :stroke-linecap "round"
+         :aria-hidden "true"}
+   [:path {:d "M6.5 6.5L13.5 13.5M13.5 6.5L6.5 13.5"}]])
 
 (defn checkbox [checked?]
   [:input.size-4.appearance-none.rounded.border
@@ -196,6 +193,35 @@
              ["border-slate-300" "bg-white"])
     :style (when checked?
              {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
+
+(defn table-col-filter-text [{:keys [table-state idx]}]
+  (let [value (-> @table-state :filter (get idx) :substring (or ""))]
+    [:div.relative
+     [:input.w-full.cursor-default.rounded.px-2.shadow-sm.ring-1.ring-slate-300.font-normal
+      {:class ["placeholder-slate-400"
+               "py-0.5"
+               "focus:outline-none"
+               "focus:ring-2"
+               "focus:ring-blue-500"
+               "sm:text-sm"
+               "sm:leading-6"
+               "bg-white"]
+       :type :text
+       :placeholder "Filter…"
+       :defaultValue value
+       :on-input (fn [event]
+                   (let [value (.. event -currentTarget -value)]
+                     (if (str/blank? value)
+                       (swap! table-state update-in [:filter idx] dissoc :substring)
+                       (swap! table-state assoc-in [:filter idx :substring] (str/trim value)))))}]
+     (when (not= "" value)
+       [:span.absolute.inset-y-0.right-0.flex.items-center.pr-1
+        {:on-click (fn [event]
+                     (let [target (.-currentTarget event)
+                           input  (.-previousElementSibling target)]
+                       (swap! table-state update-in [:filter idx] dissoc :substring)
+                       (set! (.-value input) "")))}
+        [icon-reset]])]))
 
 (defn find-parent [node pred]
   (loop [node node]
@@ -215,10 +241,16 @@
 
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
   (r/with-let [!expanded    (r/atom false)
-               !portal-root (atom nil)]
+               !portal-root (atom nil)
+               value->str   #(cond
+                               (= :nextjournal/missing %)
+                               "N/A"
+                               
+                               :else
+                               (str %))]
     (let [!button-ref (hooks/use-ref nil)
           !popup-ref  (hooks/use-ref nil)
-          selected    (-> @table-state :filter (get idx) :multiselect (or #{}))]
+          selected    (-> @table-state :filter (get idx) :one-of (or #{}))]
       (hooks/use-effect
        (fn []
          (let [on-click (fn [event]
@@ -254,8 +286,11 @@
                    "bg-white")]}
         (if (empty? selected)
           [:span.block.truncate.text-slate-400 "Filter..."]
-          [:span.block.truncate (str/join ", " selected)])
-        [chevron]]
+          [:span.block.truncate (->> selected
+                                     (map value->str)
+                                     (str/join ", "))])
+        [:span.pointer-events-none.absolute.inset-y-0.right-0.flex.items-center.pr-1
+         [icon-chevron]]]
        (when @!expanded
          (react-dom/createPortal
           (r/as-element
@@ -284,11 +319,11 @@
                 :on-pointer-down
                 (fn [_]
                   (if (selected value)
-                    (swap! table-state update-in [:filter idx :multiselect] disj value)
-                    (swap! table-state update-in [:filter idx :multiselect] (fnil conj #{}) value)))}
+                    (swap! table-state update-in [:filter idx :one-of] disj value)
+                    (swap! table-state update-in [:filter idx :one-of] (fnil conj #{}) value)))}
                [:span.flex.items-center
                 [checkbox (selected value)]]
-               (str value)])])
+                (value->str value)])])
           @!portal-root))])))
 
 (defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
