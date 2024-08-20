@@ -243,10 +243,12 @@
                                "N/A"
 
                                :else
-                               (str %))]
+                               (str %))
+               !scroll-left (r/atom 0)]
     (let [!button-ref (hooks/use-ref nil)
           !popup-ref  (hooks/use-ref nil)
           selected    (-> @table-state :active-filters (get idx) :one-of (or #{}))]
+      ;; close popup when clicking outside
       (hooks/use-effect
        (fn []
          (let [on-click (fn [event]
@@ -258,11 +260,26 @@
                                  (not (child? (.-target event) @!popup-ref)))
                             (reset! !expanded false)))]
            (js/document.addEventListener "click" on-click)
-           #(js/document.removeEventListener "click" on-click))
+           #(js/document.removeEventListener "click" on-click))))
+      ;; find portal root
+      (hooks/use-effect
+       (fn []
          (reset! !portal-root
                  (-> @!button-ref
                      (find-parent  #(-> % .-classList (.contains "result-viewer")))
                      (.querySelector ".relative")))))
+      ;; update horizontal scroll position
+      (hooks/use-effect
+       (fn []
+         (let [container (-> @!button-ref
+                             (find-parent #(= "TABLE" (.-nodeName %)))
+                             .-parentNode)
+               callback  (fn [event]
+                           (reset! !scroll-left (-> event .-currentTarget .-scrollLeft)))]
+           (reset! !scroll-left (-> container .-scrollLeft))
+           (.addEventListener container "scroll" callback)
+           #(.removeEventListener container "scroll" callback))))
+      ;; DOM
       [:<>
        [:button.block.font-normal.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
         {:ref !button-ref
@@ -295,10 +312,11 @@
              :tabindex "-1"
              :role "listbox"
              :class ["focus:outline-none" "sm:text-sm"]
-             :style (let [button @!button-ref
-                          bottom (+ (.-offsetTop button)
-                                    (.-offsetHeight button))]
-                      {:left       (.-offsetLeft button)
+             :style (let [button    @!button-ref
+                          bottom    (+ (.-offsetTop button)
+                                       (.-offsetHeight button))
+                          left      (- (.-offsetLeft button) @!scroll-left)]
+                      {:left       left
                        :top        (str "calc(" bottom "px + 0.25rem)")
                        :min-width  (.-offsetWidth button)
                        :max-height "50svh"})}
@@ -314,11 +332,11 @@
                         "sm:leading-6"]
                 :on-pointer-down
                 (fn [_]
-                  (if (selected value)
+                  (if (some? (selected value))
                     (swap! table-state update-in [:active-filters idx :one-of] disj value)
                     (swap! table-state update-in [:active-filters idx :one-of] (fnil conj #{}) value)))}
                [:span.flex.items-center
-                [checkbox (selected value)]]
+                [checkbox (some? (selected value))]]
                (value->str value)])])
           @!portal-root))])))
 
@@ -329,7 +347,7 @@
    (case filter-type
      :text
      [table-col-filter-text :substring opts]
-     
+
      :regexp
      [table-col-filter-text :regexp opts]
 

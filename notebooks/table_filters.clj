@@ -94,3 +94,4 @@
 ; - [ ] Maybe move stats behind a button
 ; - [ ] Column reorder
 ; - [ ] Hide columns
+; - [ ] Subheaders in clerk
