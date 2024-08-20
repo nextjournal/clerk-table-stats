@@ -253,7 +253,6 @@
 
 (defn compute-filters-data [{:as data :keys [rows visible-paths]}
                             {:as opts}]
-  ; (clojure.pprint/pprint data)
   (reduce-kv
    (fn [data filter-path filter-type]
      (let [filter-path (if (vector? filter-path) filter-path [filter-path])
@@ -278,50 +277,57 @@
                  {:category {:category/a :bar :category/b :foo}}]))
   )
 
+(defmulti col-filter-fn (fn [filter] (first filter)))
+
+(defmethod col-filter-fn :substring [[_ s]]
+  (when (and (not (nil? s)) (not= "" s))
+    (let [ls (str/lower-case s)]
+      (fn [value]
+        (str/includes?
+         (str/lower-case (str value))
+         ls)))))
+
+(defmethod col-filter-fn :ranges [[_ ranges]]
+  (when-not (empty? ranges)
+    (fn [value]
+      (some #(let [[from to] (:range %)]
+               (<= from value to))
+            ranges))))
+
+(defmethod col-filter-fn :one-of [[_ set]]
+  (when-not (empty? set)
+    (fn [value]
+      (contains? set value))))
+
+(defn row-filter-fn [filter-spec]
+  (let [idx+filter-fns (for [[idx filter-specs] filter-spec
+                             filter-spec filter-specs
+                             :let [filter-fn (col-filter-fn filter-spec)]
+                             :when filter-fn]
+                         [idx filter-fn])]
+    (fn [row]
+      (->> idx+filter-fns
+           (map (fn [[idx filter-fn]]
+                  (let [value (viewer/->value (nth row idx))]
+                    (filter-fn value))))
+           (every? true?)))))
+
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([{:as opts
      filter-spec :filter
      :keys [stats]
      :or {stats false}} data]
-   (cond-> (cond
-             (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
-             (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
-             (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
-             (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
-             :else nil)
-     stats (compute-table-summary opts)
-     filter-spec (compute-filters-data opts)
-     true (update :rows (partial filter (fn [row]
-                                          (let [ks (keys filter-spec)]
-                                            (or (empty? ks)
-                                                (let [filters (map #(get filter-spec %) ks)
-                                                      values (map #(viewer/->value (nth row %)) ks)]
-                                                  (every? true?
-                                                          (map (fn [col-filters col-value]
-                                                                 (every? (fn [[col-filter-key col-filter]]
-                                                                           (case col-filter-key
-                                                                             :substring
-                                                                             (str/includes?
-                                                                               (str/lower-case (str col-value))
-                                                                               (str/lower-case col-filter))
-                                                                             
-                                                                             :ranges
-                                                                             (or
-                                                                               (empty? col-filter)
-                                                                               (some #(let [[from to] (:range %)]
-                                                                                                (<= from col-value to))
-                                                                                             col-filter))
-                                                                             
-                                                                             :one-of
-                                                                             (or
-                                                                               (empty? col-filter)
-                                                                               (contains? col-filter col-value))
-                                                                             
-                                                                             :else
-                                                                             (empty? col-filter)))
-                                                                         col-filters))
-                                                               filters values)))))))))))
+   (let [row-filter-fn (row-filter-fn filter-spec)]
+     (cond-> (cond
+               (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
+               (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
+               (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
+               (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
+               :else nil)
+       stats (compute-table-summary opts)
+       filter-spec (compute-filters-data opts)
+       true (update :rows #(filter row-filter-fn %))))))
 
 (def table-markup-viewer
   {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]

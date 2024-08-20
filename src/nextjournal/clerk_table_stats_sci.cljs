@@ -18,10 +18,9 @@
         (if-let [{:keys [count percentage]} @!selected-bar]
           (str count " rows (" (.toFixed (* 100 percentage) 2) "%)")
           col-type)]
-       (into
-        [:div.flex.relative
-         {:style {:width width :height height}
-          :class "rounded-sm overflow-hidden items-center "}]
+       [:div.flex.relative
+        {:style {:width width :height height}
+         :class "rounded-sm overflow-hidden items-center "}
         (map-indexed
          (fn [i {:as bar :keys [label percentage]}]
            (let [bar-width (* width percentage)
@@ -37,16 +36,16 @@
                :class (cond
                         (and (empty? selected) (= :unique label))
                         ["bg-gray-300" "hover:bg-[#3B5FC0]" "hover:text-white" "dark:bg-gray-800" "dark:hover:bg-gray-700"]
-                        
+
                         (= :empty label)
                         ["bg-orange-200" "hover:bg-orange-300" "dark:bg-pink-900" "dark:bg-opacity-[0.7]" "dark:hover:bg-pink-800"]
-                        
+
                         (empty? selected)
                         ["bg-[#889DD7]" "hover:bg-[#3B5FC0]" "text-white" "dark:bg-sky-700" "dark:hover:bg-sky-500"]
-                        
+
                         filtered?
                         ["bg-[#889DD7]" "hover:bg-[#3B5FC0]" "text-white" "dark:bg-sky-700" "dark:hover:bg-sky-500"]
-                        
+
                         :else
                         ["bg-gray-300" "hover:bg-[#3B5FC0]" "hover:text-white" "dark:bg-gray-800" "dark:hover:bg-gray-700"])
                :style {:width bar-width
@@ -62,7 +61,7 @@
               (when-not (= i last-index)
                 [:div.absolute.top-0.right-0.bottom-0
                  {:class "bg-white bg-opacity-[0.7] dark:bg-black w-[1px]"}])]))
-         distribution))
+         (sort-by #(str (:label %)) distribution))]
        [:div.text-slate-500.dark:text-slate-400.font-normal.truncate
         {:class "text-[12px] h-[24px] mt-[1px] leading-[24px] "
          :style {:width width}}
@@ -76,12 +75,12 @@
 (defn table-col-histogram
   [{:keys [col-type distribution width height]} {:keys [table-state idx]}]
   (r/with-let [!selected-bar (r/atom nil)
-                          fmt (fn [x]
-                                (cond (and (>= x 1000) (< x 1000000))
-                                      (str (.toFixed (/ x 1000) 0) "K")
-                                      (>= x 1000000)
-                                      (str (.toFixed (/ x 1000000) 0) "M")
-                                      :else (str (.toFixed x 0))))]
+               fmt (fn [x]
+                     (cond (and (>= x 1000) (< x 1000000))
+                           (str (.toFixed (/ x 1000) 0) "K")
+                           (>= x 1000000)
+                           (str (.toFixed (/ x 1000000) 0) "M")
+                           :else (str (.toFixed x 0))))]
     (let [filtered-bars (-> (get-in (:filter @table-state) [idx :ranges])
                             not-empty)
           max (:count (apply max-key :count distribution))
@@ -89,15 +88,13 @@
           from (-> distribution first :range first)
           to (-> distribution last :range last)]
       [:div
-       #_[:pre (pr-str [idx (:filter @table-state)])]
        [:div.text-slate-500.dark:text-slate-400.font-normal
         {:class "text-[12px] h-[24px] leading-[24px]"}
         (if-let [{:keys [count percentage]} @!selected-bar]
           (str count " rows (" (.toFixed (* percentage 100) 2) "%)")
           col-type)]
-       (into
-        [:div.flex.relative
-         {:style {:width width :height height}}]
+       [:div.flex.relative
+        {:style {:width width :height height}}
         (map-indexed
          (fn [i {:as bar row-count :count :keys [range]}]
            (let [bar-width (/ width (count distribution))
@@ -139,7 +136,7 @@
                   {:class "text-[12px] h-[24px] leading-[24px] translate-x-full"
                    :style {:top height}}
                   (fmt (last range))]])]))
-         distribution))
+         (sort-by #(str (:label %)) distribution))]
        [:div.text-slate-500.dark:text-slate-400.font-normal.truncate
         {:class "text-[12px] h-[24px] leading-[24px] "
          :style {:width width}}
@@ -237,7 +234,7 @@
 
 (defn child? [node parent]
   (boolean
-    (find-parent node #(identical? % parent))))
+   (find-parent node #(identical? % parent))))
 
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
   (r/with-let [!expanded    (r/atom false)
@@ -245,7 +242,7 @@
                value->str   #(cond
                                (= :nextjournal/missing %)
                                "N/A"
-                               
+
                                :else
                                (str %))]
     (let [!button-ref (hooks/use-ref nil)
@@ -306,7 +303,7 @@
                        :top        (str "calc(" bottom "px + 0.25rem)")
                        :min-width  (.-offsetWidth button)
                        :max-height "50svh"})}
-            (for [value (sort (:values filter-data))]
+            (for [value (sort-by str (:values filter-data))]
               [:li.cursor-default.select-none.flex
                {:role "option"
                 :class ["pl-2"
@@ -323,7 +320,7 @@
                     (swap! table-state update-in [:filter idx :one-of] (fnil conj #{}) value)))}
                [:span.flex.items-center
                 [checkbox (selected value)]]
-                (value->str value)])])
+               (value->str value)])])
           @!portal-root))])))
 
 (defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
@@ -331,7 +328,7 @@
    (case filter
      :text
      [table-col-filter-text opts]
-     
+
      :multiselect
      [table-col-filter-multiselect opts])])
 
@@ -358,13 +355,12 @@
                              :cell cell}) cells*)
         !thead       (hooks/use-ref nil)]
     (hooks/use-effect
-      (fn []
-        (let [thead @!thead]
-          (doseq [tr (.-children thead)
-                  th (.-children tr)]
-            (set! (.-width (.-style th)) (str (.-offsetWidth th) "px"))
-            (set! (.-maxWidth (.-style th)) (str (.-offsetWidth th) "px")))
-        )))
+     (fn []
+       (let [thead @!thead]
+         (doseq [tr (.-children thead)
+                 th (.-children tr)]
+           (set! (.-width (.-style th)) (str (.-offsetWidth th) "px"))
+           (set! (.-maxWidth (.-style th)) (str (.-offsetWidth th) "px"))))))
     [:thead {:ref !thead}
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
@@ -382,10 +378,10 @@
                                        "print:py-[2px]"
                                        (when sub-headers
                                          "first:border-l-0 ")]}
-                         (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                         (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
-                         (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
-                         title (assoc :title title))
+                        (and column-layout (column-layout k)) (assoc :style (column-layout k))
+                        (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
+                        (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
+                        title (assoc :title title))
                       [:div.flex.flex-col.gap-1
                        [:div (get translated-keys k k)]
                        (when-not (vector? header-cell)
@@ -449,5 +445,4 @@
   (doseq [[k var] (ns-publics *ns*)]
     (add-watch var (keyword (str k))
                (fn [_ _ _ _]
-                 (nextjournal.clerk.render/re-render))))
-  )
+                 (nextjournal.clerk.render/re-render)))))

@@ -1,26 +1,74 @@
 ;; # Table Filters
-
-(ns ^:nextjournal.clerk/no-cache table-filters
-  (:require [nextjournal.clerk :as clerk]
+(ns table-filters
+  {:nextjournal.clerk/no-cache true
+   :nextjournal.clerk/visibility {:code :hide
+                                  :result :hide}}
+  (:require [clojure.math :as math]
+            [nextjournal.clerk :as clerk]
             [nextjournal.clerk-table-stats :as clerk-table-stats]))
 
+(def cities
+  {"United Kingdom" ["London" "Westminster" "Birmingham" "Leeds" "Glasgow" "Manchester" "Sheffield" "Bradford" "Edinburgh" "Liverpool"]
+   "Germany"        ["Berlin" "Hamburg" "Munich" "Cologne" "Frankfurt am Main" "Stuttgart" "Düsseldorf" "Leipzig" "Dortmund" "Essen"]
+   "USA"            ["New York" "Los Angeles" "Chicago" "Houston" "Phoenix" "Philadelphia" "San Antonio" "San Diego" "Dallas" "Jacksonville"]
+   "Russia"         ["Moscow" "Saint Petersburg" "Novosibirsk" "Yekaterinburg" "Kazan" "Nizhny Novgorod" "Chelyabinsk" "Krasnoyarsk" "Samara" "Ufa"]
+   "Australia"      ["Sydney" "Melbourne" "Brisbane" "Perth" "Adelaide" "Hobart" "Darwin"]
+   "Republic of the Congo" ["Brazzaville" "Pointe-Noire" "Dolisie" "Nkayi" "Impfondo" "Ouésso" "Madingou" "Owando" "Sibiti" "Loutété"]})
+
+(def last-names
+  ["Smith" "Johnson" "Williams" "Brown" "Jones" "Miller" "Davis" "Garcia" "Rodriguez" "Wilson"
+   "Martinez" "Anderson" "Taylor" "Thomas" "Hernandez" "Moore" "Martin" "Jackson" "Thompson" "White" "Lopez" "Lee" "Gonzalez"])
+
+(def first-names
+  ["Liam" "Noah" "Oliver" "James" "Elijah" "Mateo" "Theodore" "Henry" "Lucas" "William"
+   "John" "Robert" "Michael" "David" "Richard" "Charles" "Joseph" "Thomas"
+   "Olivia" "Emma" "Charlotte" "Amelia" "Sophia" "Mia" "Isabella" "Ava" "Evelyn" "Luna"
+   "Mary" "Patricia" "Linda" "Barbara" "Elizabeth" "Jennifer" "Maria" "Susan" "Margaret" "Dorothy"])
+
+(defn rand-el [coll]
+  (cond 
+    (< (rand) 0.05)
+    nil
+    
+    (empty? coll)
+    nil
+    
+    :else
+    (-> (rand) (* math/PI) math/sin (* (dec (count coll))) math/round (->> (nth coll)))))
+
+(defn some-map [& kvs]
+  (into {} (keep (fn [[k v]] (when (some? v) [k v]))) (partition 2 kvs)))
+
+(defn row-fn [id]
+  (let [country (rand-el (keys cities))]
+    (some-map
+     :id id
+     :location
+     (some-map
+      :country country
+      :city    (rand-el (cities country)))
+     :age    (rand-int 100)
+     :height (+ 150 (rand-int 50))
+     :name
+     (some-map
+      :first (rand-el first-names)
+      :last  (rand-el last-names)))))
+
+(def data
+  (mapv row-fn (range 10000)))
+
+^{:nextjournal.clerk/visibility {:result :show}}
 (clerk/with-viewer clerk-table-stats/viewer
   {::clerk/render-opts {:filters {[:location :country] :multiselect
                                   [:location :city] :text
-                                  :value :text}
+                                  :age :text
+                                  :height :text
+                                  [:name :first] :multiselect
+                                  [:name :last] :text}
                         :group-headers true
                         :hide-columns [:id]
                         :stats true}}
-  [{:id 0 :location {:country :uk :city "London"} :value 11}
-   {:id 1 :location {:country :uk :city "Brighton"} :value 12}
-   {:id 2 :location {:country :uk :city "London"} :value 13}
-   {:id 3 :location {:country :germany :city "Berlin"} :value 21}
-   {:id 4 :location {:country :germany :city "Münich"} :value 22}
-   {:id 5 :location {:country :germany} :value 22}
-   {:id 6 :location {:city "New York"} :value 11}
-   {:id 7 :location {:country :usa :city "San Francisco"} :value 12}
-   {:id 8 :location {:country :australia :city "Melburn"} :value 22}
-   {:id 8 :location {:country :republic-of-the-congo :city "Brazzaville"} :value 22}])
+  data)
 
 ; - [ ] checkbox filter
 ; - [ ] regex filter
@@ -28,7 +76,7 @@
 ; - [x] do not close popup after first selection
 ; - [x] use checkboxes instead of checkmarks
 ; - [x] share filter state between stats and filters
-; - [ ] abstract away filter fn
+; - [x] abstract away filter fn
 ; - [x] reset in :text filter
 ; - [ ] type inside multiselect
 ; - [ ] arrow keys in multiselect
