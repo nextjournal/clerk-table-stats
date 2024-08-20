@@ -11,7 +11,7 @@
     (let [width 140
           height 30
           last-index (dec (count distribution))
-          selected (-> @table-state :filter (get idx) :one-of (or #{}))]
+          selected (-> @table-state :active-filters (get idx) :one-of (or #{}))]
       [:div
        [:div.text-slate-500.dark:text-slate-400.font-normal
         {:class "text-[12px] h-[24px] leading-[24px]"}
@@ -29,8 +29,8 @@
              [:div.relative.overflow-hidden.text-slate-500.dark:text-slate-300.font-normal
               {:on-click #(do
                             (if filtered?
-                              (swap! table-state update :filter update-in [idx :one-of] disj label)
-                              (swap! table-state update :filter update-in [idx :one-of] (fnil conj #{}) label)))
+                              (swap! table-state update-in [:active-filters idx :one-of] disj label)
+                              (swap! table-state update-in [:active-filters idx :one-of] (fnil conj #{}) label)))
                :on-mouse-enter #(reset! !selected-bar bar)
                :on-mouse-leave #(reset! !selected-bar nil)
                :class (cond
@@ -81,8 +81,7 @@
                            (>= x 1000000)
                            (str (.toFixed (/ x 1000000) 0) "M")
                            :else (str (.toFixed x 0))))]
-    (let [filtered-bars (-> (get-in (:filter @table-state) [idx :ranges])
-                            not-empty)
+    (let [filtered-bars (-> @table-state :active-filters (get idx) :ranges not-empty)
           max (:count (apply max-key :count distribution))
           last-index (dec (count distribution))
           from (-> distribution first :range first)
@@ -111,8 +110,8 @@
                {:style {:height height}}
                [:div.w-full.relative
                 {:on-click #(if filtered?
-                              (swap! table-state update-in [:filter idx :ranges] disj bar)
-                              (swap! table-state update-in [:filter idx :ranges] (fnil conj #{}) bar))
+                              (swap! table-state update-in [:active-filters idx :ranges] disj bar)
+                              (swap! table-state update-in [:active-filters idx :ranges] (fnil conj #{}) bar))
                  :style {:height (* (/ row-count max) height)}
                  :class (let [css ["group-hover:bg-red-300 dark:bg-sky-700 dark:group-hover:bg-sky-500 "]]
                           (if selected?
@@ -149,15 +148,15 @@
   [{:as summary :keys [continuous?]} {:keys [table-state idx] :as opts}]
   (let [summary (assoc summary :width 140 :height 30)
         filtered? (if continuous?
-                    (not-empty (get-in @table-state [:filter idx :ranges]))
-                    (not-empty (get-in @table-state [:filter idx :one-of])))]
+                    (not-empty (get-in @table-state [:active-filters idx :ranges]))
+                    (not-empty (get-in @table-state [:active-filters idx :one-of])))]
     [:div.flex
      [:div
       {:class (cond-> ["text-indigo-200"]
                 filtered?
                 (conj "text-black" "cursor-pointer"))
        :on-click #(when filtered?
-                    (swap! table-state update-in [:filter idx] dissoc (if continuous? :ranges :one-of)))}
+                    (swap! table-state update-in [:active-filters idx] dissoc (if continuous? :ranges :one-of)))}
       "x"]
      (if continuous?
        [table-col-histogram summary opts]
@@ -192,7 +191,7 @@
              {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
 
 (defn table-col-filter-text [{:keys [table-state idx]}]
-  (let [value (-> @table-state :filter (get idx) :substring (or ""))]
+  (let [value (-> @table-state :active-filters (get idx) :substring (or ""))]
     [:div.relative
      [:input.w-full.cursor-default.rounded.px-2.shadow-sm.ring-1.ring-slate-300.font-normal
       {:class ["placeholder-slate-400"
@@ -209,14 +208,14 @@
        :on-input (fn [event]
                    (let [value (.. event -currentTarget -value)]
                      (if (str/blank? value)
-                       (swap! table-state update-in [:filter idx] dissoc :substring)
-                       (swap! table-state assoc-in [:filter idx :substring] (str/trim value)))))}]
+                       (swap! table-state update-in [:active-filters idx] dissoc :substring)
+                       (swap! table-state assoc-in [:active-filters idx :substring] (str/trim value)))))}]
      (when (not= "" value)
        [:span.absolute.inset-y-0.right-0.flex.items-center.pr-1
         {:on-click (fn [event]
                      (let [target (.-currentTarget event)
                            input  (.-previousElementSibling target)]
-                       (swap! table-state update-in [:filter idx] dissoc :substring)
+                       (swap! table-state update-in [:active-filters idx] dissoc :substring)
                        (set! (.-value input) "")))}
         [icon-reset]])]))
 
@@ -247,7 +246,7 @@
                                (str %))]
     (let [!button-ref (hooks/use-ref nil)
           !popup-ref  (hooks/use-ref nil)
-          selected    (-> @table-state :filter (get idx) :one-of (or #{}))]
+          selected    (-> @table-state :active-filters (get idx) :one-of (or #{}))]
       (hooks/use-effect
        (fn []
          (let [on-click (fn [event]
@@ -291,7 +290,7 @@
        (when @!expanded
          (react-dom/createPortal
           (r/as-element
-           [:ul.absolute.z-10.rounded.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300.not-prose.overflow-y-scroll
+           [:ul.absolute.z-10.rounded.font-sans.bg-white.py-1.text-base.shadow-lg.ring-1.ring-slate-300.not-prose.overflow-y-scroll
             {:ref !popup-ref
              :tabindex "-1"
              :role "listbox"
@@ -316,16 +315,18 @@
                 :on-pointer-down
                 (fn [_]
                   (if (selected value)
-                    (swap! table-state update-in [:filter idx :one-of] disj value)
-                    (swap! table-state update-in [:filter idx :one-of] (fnil conj #{}) value)))}
+                    (swap! table-state update-in [:active-filters idx :one-of] disj value)
+                    (swap! table-state update-in [:active-filters idx :one-of] (fnil conj #{}) value)))}
                [:span.flex.items-center
                 [checkbox (selected value)]]
                (value->str value)])])
           @!portal-root))])))
 
-(defn table-col-filter [{:as opts :keys [filter] :or {filter :text}}]
+(defn table-col-filter [{:as opts
+                         :keys [filter-type]
+                         :or {filter-type :text}}]
   [:div
-   (case filter
+   (case filter-type
      :text
      [table-col-filter-text opts]
 
@@ -388,7 +389,7 @@
                          [:<>
                           (let [col-filter (get-in (:filters opts) [k])]
                             (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
-                              [table-col-filter {:filter col-filter
+                              [table-col-filter {:filter-type col-filter
                                                  :filter-data (get (:filter-data opts) idx)
                                                  :table-state table-state
                                                  :idx idx}]))
@@ -408,7 +409,7 @@
                    [:div.flex.flex-col.gap-1
                     (get (:translated-keys opts {}) sub-header-key sub-header-key)
                     (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
-                      [table-col-filter {:filter col-filter
+                      [table-col-filter {:filter-type col-filter
                                          :filter-data (get (:filter-data opts) idx)
                                          :table-state table-state
                                          :idx idx}])

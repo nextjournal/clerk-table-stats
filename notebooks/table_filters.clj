@@ -72,7 +72,7 @@
 
 ; - [ ] checkbox filter
 ; - [ ] regex filter
-; - [ ] rename :filter key
+; - [x] rename :filter -> :active-filters
 ; - [x] do not close popup after first selection
 ; - [x] use checkboxes instead of checkmarks
 ; - [x] share filter state between stats and filters

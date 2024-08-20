@@ -277,15 +277,15 @@
                  {:category {:category/a :bar :category/b :foo}}]))
   )
 
-(defmulti col-filter-fn (fn [filter] (first filter)))
+(defmulti col-filter-fn
+  (fn [[filter-type & _]]
+    filter-type))
 
 (defmethod col-filter-fn :substring [[_ s]]
   (when (and (not (nil? s)) (not= "" s))
     (let [ls (str/lower-case s)]
       (fn [value]
-        (str/includes?
-         (str/lower-case (str value))
-         ls)))))
+        (str/includes? (str/lower-case (str value)) ls)))))
 
 (defmethod col-filter-fn :ranges [[_ ranges]]
   (when-not (empty? ranges)
@@ -299,10 +299,10 @@
     (fn [value]
       (contains? set value))))
 
-(defn row-filter-fn [filter-spec]
-  (let [idx+filter-fns (for [[idx filter-specs] filter-spec
-                             filter-spec filter-specs
-                             :let [filter-fn (col-filter-fn filter-spec)]
+(defn row-filter-fn [active-filters]
+  (let [idx+filter-fns (for [[idx col-filters] active-filters
+                             active-filter col-filters
+                             :let [filter-fn (col-filter-fn active-filter)]
                              :when filter-fn]
                          [idx filter-fn])]
     (fn [row]
@@ -315,10 +315,9 @@
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([{:as opts
-     filter-spec :filter
-     :keys [stats]
+     :keys [active-filters stats]
      :or {stats false}} data]
-   (let [row-filter-fn (row-filter-fn filter-spec)]
+   (let [row-filter-fn (row-filter-fn active-filters)]
      (cond-> (cond
                (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
                (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
@@ -326,7 +325,7 @@
                (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
                :else nil)
        stats (compute-table-summary opts)
-       filter-spec (compute-filters-data opts)
+       active-filters (compute-filters-data opts)
        true (update :rows #(filter row-filter-fn %))))))
 
 (def table-markup-viewer
@@ -391,7 +390,7 @@
                            var-name (symbol (namespace id) (str (name id) "-table"))])
                  _ #?(:clj (when-not (resolve var-name)
                              (when-some [ns' (find-ns (symbol (namespace var-name)))]
-                               (intern ns' (symbol (name var-name)) (doto (atom {:filter {}})
+                               (intern ns' (symbol (name var-name)) (doto (atom {:active-filters {}})
                                                                       (add-watch ::recompute
                                                                                  (fn [_ _ _ _]
                                                                                    (nextjournal.clerk/recompute!)))))))
