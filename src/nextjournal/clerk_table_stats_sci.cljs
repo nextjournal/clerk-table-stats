@@ -190,8 +190,8 @@
     :style (when checked?
              {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
 
-(defn table-col-filter-text [{:keys [table-state idx]}]
-  (let [value (-> @table-state :active-filters (get idx) :substring (or ""))]
+(defn table-col-filter-text [filter-type {:keys [table-state idx]}]
+  (let [value (-> @table-state :active-filters (get idx) filter-type (or ""))]
     [:div.relative
      [:input.w-full.cursor-default.rounded.px-2.shadow-sm.ring-1.ring-slate-300.font-normal
       {:class ["placeholder-slate-400"
@@ -203,19 +203,19 @@
                "sm:leading-6"
                "bg-white"]
        :type :text
-       :placeholder "Filter…"
+       :placeholder (-> filter-type name str/capitalize (str "..."))
        :defaultValue value
        :on-input (fn [event]
                    (let [value (.. event -currentTarget -value)]
                      (if (str/blank? value)
-                       (swap! table-state update-in [:active-filters idx] dissoc :substring)
-                       (swap! table-state assoc-in [:active-filters idx :substring] (str/trim value)))))}]
+                       (swap! table-state update-in [:active-filters idx] dissoc filter-type)
+                       (swap! table-state assoc-in [:active-filters idx filter-type] (str/trim value)))))}]
      (when (not= "" value)
        [:span.absolute.inset-y-0.right-0.flex.items-center.pr-1
         {:on-click (fn [event]
                      (let [target (.-currentTarget event)
                            input  (.-previousElementSibling target)]
-                       (swap! table-state update-in [:active-filters idx] dissoc :substring)
+                       (swap! table-state update-in [:active-filters idx] dissoc filter-type)
                        (set! (.-value input) "")))}
         [icon-reset]])]))
 
@@ -281,7 +281,7 @@
                    "bg-slate-100"
                    "bg-white")]}
         (if (empty? selected)
-          [:span.block.truncate.text-slate-400 "Filter..."]
+          [:span.block.truncate.text-slate-400 "Select..."]
           [:span.block.truncate (->> selected
                                      (map value->str)
                                      (str/join ", "))])
@@ -328,7 +328,10 @@
   [:div
    (case filter-type
      :text
-     [table-col-filter-text opts]
+     [table-col-filter-text :substring opts]
+     
+     :regexp
+     [table-col-filter-text :regexp opts]
 
      :multiselect
      [table-col-filter-multiselect opts])])

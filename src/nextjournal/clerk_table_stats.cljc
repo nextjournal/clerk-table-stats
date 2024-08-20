@@ -287,6 +287,15 @@
       (fn [value]
         (str/includes? (str/lower-case (str value)) ls)))))
 
+(defmethod col-filter-fn :regexp [[_ s]]
+  (when (and (not (nil? s)) (not= "" s))
+    (try
+      (let [re (java.util.regex.Pattern/compile s)]
+        (fn [value]
+          (re-find re (str value))))
+      (catch java.util.regex.PatternSyntaxException e
+        #_(println (.getMessage e))))))
+
 (defmethod col-filter-fn :ranges [[_ ranges]]
   (when-not (empty? ranges)
     (fn [value]
@@ -310,7 +319,7 @@
            (map (fn [[idx filter-fn]]
                   (let [value (viewer/->value (nth row idx))]
                     (filter-fn value))))
-           (every? true?)))))
+           (every? identity)))))
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))

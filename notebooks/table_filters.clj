@@ -26,13 +26,13 @@
    "Mary" "Patricia" "Linda" "Barbara" "Elizabeth" "Jennifer" "Maria" "Susan" "Margaret" "Dorothy"])
 
 (defn rand-el [coll]
-  (cond 
+  (cond
     (< (rand) 0.05)
     nil
-    
+
     (empty? coll)
     nil
-    
+
     :else
     (-> (rand) (* math/PI) math/sin (* (dec (count coll))) math/round (->> (nth coll)))))
 
@@ -42,36 +42,38 @@
 (defn row-fn [id]
   (let [country (rand-el (keys cities))]
     (some-map
-     :id id
-     :location
-     (some-map
-      :country country
-      :city    (rand-el (cities country)))
-     :age    (rand-int 100)
-     :height (+ 150 (rand-int 50))
-     :name
-     (some-map
-      :first (rand-el first-names)
-      :last  (rand-el last-names)))))
+     :id       id
+     :location (some-map
+                :country country
+                :city    (rand-el (cities country)))
+     :age      (rand-int 100)
+     :height   (+ 150 (rand-int 50))
+     :married? (rand-nth [true false nil])
+     :gender   (rand-nth [:male :female :unknown nil])
+     :name     (some-map
+                :first (rand-el first-names)
+                :last  (rand-el last-names)))))
 
-(def data
+(defonce data
   (mapv row-fn (range 10000)))
 
 ^{:nextjournal.clerk/visibility {:result :show}}
 (clerk/with-viewer clerk-table-stats/viewer
   {::clerk/render-opts {:filters {[:location :country] :multiselect
-                                  [:location :city] :text
-                                  :age :text
-                                  :height :text
-                                  [:name :first] :multiselect
-                                  [:name :last] :text}
+                                  [:location :city]    :text
+                                  :age                 :regexp
+                                  :height              :text
+                                  :married?            :multiselect
+                                  :gender              :multiselect
+                                  [:name :first]       :multiselect
+                                  [:name :last]        :text}
                         :group-headers true
                         :hide-columns [:id]
                         :stats true}}
   data)
 
 ; - [ ] checkbox filter
-; - [ ] regex filter
+; - [x] regexp filter
 ; - [x] rename :filter -> :active-filters
 ; - [x] do not close popup after first selection
 ; - [x] use checkboxes instead of checkmarks
