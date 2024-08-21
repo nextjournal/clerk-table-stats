@@ -252,20 +252,17 @@
                                 )))))
 
 (defn compute-filters-data [{:as data :keys [rows visible-paths]}
-                            {:as opts}]
+                            {:as opts :keys [active-filters]}]
   (reduce-kv
-   (fn [data filter-path filter-type]
-     (let [filter-path (if (vector? filter-path) filter-path [filter-path])
-           idx         (.indexOf visible-paths filter-path)]
-       (if (neg? idx)
-         data
-         (case filter-type
-           :multiselect
-           (let [values (into #{} (map #(nth % idx)) rows)]
-             (update data :filter-data assoc idx {:values values}))
-           #_else
-           data))))
-   data (:filters opts)))
+   (fn [data idx filter]
+     (let [filter-type (first (keys filter))]
+       (case filter-type
+         :one-of
+         (let [values (into #{} (map #(nth % idx)) rows)]
+           (update data :filter-data assoc idx {:values values}))
+         #_else
+         data)))
+   data active-filters))
 
 (comment
   (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])

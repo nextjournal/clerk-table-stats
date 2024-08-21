@@ -69,7 +69,7 @@
                                   [:name :last]        :text}
                         :group-headers true
                         :hide-columns [:id]
-                        :stats true}}
+                        :stats false}}
   data)
 
 ; - [ ] checkbox filter
@@ -79,12 +79,12 @@
 ; - [ ] Resize should go into react tree
 ; - [ ] Resize should be in %
 ; - [ ] Resize on first load of incomplete data
-; - [ ] Maybe move filters behind a button
 ; - [ ] Maybe move stats behind a button
 ; - [ ] Column reorder
 ; - [ ] Hide columns
 ; - [ ] Subheaders in clerk
 ; - [ ] Unicode-aware filtering
+; - [x] Maybe move filters behind a button
 ; - [x] type inside multiselect
 ; - [x] regexp filter
 ; - [x] abstract away filter fn

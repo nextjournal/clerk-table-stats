@@ -229,12 +229,10 @@
 
 (defn table-col-filter-text [filter-type {:keys [table-state idx]}]
   (let [value     (-> @table-state :active-filters (get idx) filter-type (or ""))
-        set-value (fn [value]
-                    (if (str/blank? value)
-                      (swap! table-state update-in [:active-filters idx] dissoc filter-type)
-                      (swap! table-state assoc-in [:active-filters idx filter-type] (str/trim value))))]
+        set-value #(swap! table-state assoc-in [:active-filters idx filter-type] %)]
     [input value set-value
-     {:placeholder (-> filter-type name str/capitalize (str "..."))}]))
+     {:placeholder (-> filter-type name str/capitalize (str "..."))
+      :auto-focus  true}]))
 
 (defn find-parent [node pred]
   (loop [node node]
@@ -246,6 +244,17 @@
 (defn child? [node parent]
   (boolean
    (find-parent node #(identical? % parent))))
+
+(defn offset [^js el]
+  (let [box         (.getBoundingClientRect el)
+        body        js/document.body
+        doc-el      js/document.documentElement
+        scroll-top  (or js/window.pageYOffset (.-scrollTop doc-el) (.-scrollTop body))
+        scroll-left (or js/window.pageXOffset (.-scrollLeft doc-el) (.-scrollLeft body))
+        client-top  (or (.-clientTop doc-el) (.-clientTop body) 0)
+        client-left (or (.-clientLeft doc-el) (.-clientLeft body) 0)]
+    {:top (-> (.-top box) (+ scroll-top) (- client-top))
+     :left (-> (.-left box) (+ scroll-left) (- client-left))}))
 
 (defn popup [opts button-markup popup-markup]
   (r/with-let [!expanded-default (r/atom false)
@@ -271,13 +280,6 @@
                                 (on-close)))))]
            (js/document.addEventListener "click" on-click)
            #(js/document.removeEventListener "click" on-click))))
-      ;; find portal root
-      (hooks/use-effect
-       (fn []
-         (reset! !portal-root
-                 (-> @!button-ref
-                     (find-parent  #(-> % .-classList (.contains "result-viewer")))
-                     (.querySelector ".relative")))))
       ;; update horizontal scroll position
       (hooks/use-effect
        (fn []
@@ -299,15 +301,15 @@
            [:div {:ref !popup-ref
                   :class ["absolute" "z-10" "overflow-y-scroll"]
                   :style (let [button @!button-ref
-                               bottom (+ (.-offsetTop button)
-                                         (.-offsetHeight button))
-                               left   (- (.-offsetLeft button) @!scroll-left)]
+                               scroll-left @!scroll-left ;; trigger recalc
+                               {:keys [left top]} (offset button)
+                               bottom (+ top (.-offsetHeight button))]
                            {:left       left
                             :top        (str "calc(" bottom "px + 0.25rem)")
                             :min-width  (.-offsetWidth button)
                             :max-height "50svh"})}
             popup-markup])
-          @!portal-root))])))
+          js/document.body))])))
 
 (defn normalize-str [s]
   (when s
@@ -373,18 +375,61 @@
                value-str])))]])))
 
 (defn table-col-filter [{:as opts
-                         :keys [filter-type]
-                         :or {filter-type :text}}]
+                         :keys [filter-type]}]
   [:div
    (case filter-type
-     :text
+     :substring
      [table-col-filter-text :substring opts]
 
      :regexp
      [table-col-filter-text :regexp opts]
 
-     :multiselect
+     :one-of
      [table-col-filter-multiselect opts])])
+
+(defn icon-filter []
+  [:svg {:viewBox "0 0 20 20"
+         :fill "currentColor"
+         :xmlns "http://www.w3.org/2000/svg"}
+   [:path {:d "M18 1H2V3L10 13L18 3V1Z"}]
+   [:path {:d "M8 5H12V18L8 15V5Z"}]])
+
+(defn icon-checkmark []
+  [:svg {:xmlns "http://www.w3.org/2000/svg"
+         :fill "none"
+         :viewBox "0 0 20 20"
+         :stroke-width "1.5"
+         :stroke "currentColor"
+         :stroke-linecap "round"
+         :stroke-linejoin "round"}
+   [:path {:d "M5 10L9 14L15 5"}]])
+
+(defn filter-button [table-state opts cell idx]
+  (r/with-let [!expanded (r/atom false)]
+    (let [filter (-> @table-state :active-filters (get idx) keys first)]
+      [:div.absolute.right-1.size-4.text-slate-300.hover:text-slate-500
+       [popup {:!expanded !expanded}
+        [:div
+         {:class [(when filter "text-slate-500")]}
+         [icon-filter]]
+        [:ul.rounded.font-sans.bg-white.py-1.text-base.shadow-lg.border.border-slate-300.not-prose
+         (for [[type name] [[nil        "No filter"]
+                            [:substring "Substring"]
+                            [:regexp    "Regexp"]
+                            [:one-of    "Multiselect"]]
+               :let [selected? (= filter type)]]
+           [:li.cursor-default.select-none.flex.items-center
+            {:class ["pl-2" "pr-3" "py-0.5" "sm:text-sm" "sm:leading-6" "hover:bg-slate-200"]
+             :on-click (fn [_]
+                         (when-not selected?
+                           (if type
+                             (swap! table-state update :active-filters assoc idx {type nil})
+                             (swap! table-state update :active-filters dissoc idx)))
+                         (reset! !expanded false))}
+            [:span.size-5.mr-1
+             (when selected? 
+              [icon-checkmark])]
+            name])]]])))
 
 (defn table-head-viewer
   [header-row {:as opts :keys [table-state]}]
@@ -419,13 +464,14 @@
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
                    (let [header-cell (:cell cell)
+                         has-subheaders? (vector? header-cell)
                          idx (:idx cell)
                          k (if (vector? header-cell)
                              (first header-cell)
                              header-cell)
                          title (when (or (string? k) (keyword? k) (symbol? k)) k)
                          {:keys [translated-keys column-layout number-col?] :or {translated-keys {}}} opts]
-                     [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b.align-bottom
+                     [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b.align-top
                       (cond-> {:class ["print:text-[10px]"
                                        "print:bg-transparent"
                                        "print:px-[5px]"
@@ -437,15 +483,17 @@
                         (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
                         title (assoc :title title))
                       [:div.flex.flex-col.gap-1
-                       [:div (get translated-keys k k)]
-                       (when-not (vector? header-cell)
+                       [:div.relative.flex.justify-center
+                        [:span.px-6 (get translated-keys k k)]
+                        (when-not has-subheaders?
+                          [filter-button table-state opts header-cell idx])]
+                       (when-not has-subheaders?
                          [:<>
-                          (let [col-filter (get-in (:filters opts) [k])]
-                            (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
-                              [table-col-filter {:filter-type col-filter
-                                                 :filter-data (get (:filter-data opts) idx)
-                                                 :table-state table-state
-                                                 :idx idx}]))
+                          (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
+                            [table-col-filter {:filter-type col-filter
+                                               :filter-data (get (:filter-data opts) idx)
+                                               :table-state table-state
+                                               :idx idx}])
                           (when-let [summary (:summary opts)]
                             [table-col-summary (get-in summary [k])
                              {:table-state table-state
@@ -458,10 +506,12 @@
                 [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b.align-bottom
                  {:class (if (< 0 idx) "border-l")}
                  (let [sub-header-key (second cell)
-                       col-filter (get (:filters opts) cell)]
+                       col-filter     (get (:filters opts) cell)]
                    [:div.flex.flex-col.gap-1
-                    (get (:translated-keys opts {}) sub-header-key sub-header-key)
-                    (when (or col-filter (true? (:filters opts)) (keyword? (:filters opts)))
+                    [:div.relative.flex.justify-center
+                     (get (:translated-keys opts {}) sub-header-key sub-header-key)
+                     [filter-button table-state opts cell idx]]
+                    (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
                       [table-col-filter {:filter-type col-filter
                                          :filter-data (get (:filter-data opts) idx)
                                          :table-state table-state
