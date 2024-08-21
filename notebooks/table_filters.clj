@@ -11,7 +11,7 @@
   {"United Kingdom" ["London" "Westminster" "Birmingham" "Leeds" "Glasgow" "Manchester" "Sheffield" "Bradford" "Edinburgh" "Liverpool"]
    "Germany"        ["Berlin" "Hamburg" "Munich" "Cologne" "Frankfurt am Main" "Stuttgart" "Düsseldorf" "Leipzig" "Dortmund" "Essen"]
    "USA"            ["New York" "Los Angeles" "Chicago" "Houston" "Phoenix" "Philadelphia" "San Antonio" "San Diego" "Dallas" "Jacksonville"]
-   "Russia"         ["Moscow" "Saint Petersburg" "Novosibirsk" "Yekaterinburg" "Kazan" "Nizhny Novgorod" "Chelyabinsk" "Krasnoyarsk" "Samara" "Ufa"]
+   "Россия"         ["Москва" "Санкт-Петербург" "Новосибирск" "Екатеринбург" "Казань" "Нижний Новгород" "Челябинск" "Красноярск" "Самара" "Уфа"]
    "Australia"      ["Sydney" "Melbourne" "Brisbane" "Perth" "Adelaide" "Hobart" "Darwin"]
    "Republic of the Congo" ["Brazzaville" "Pointe-Noire" "Dolisie" "Nkayi" "Impfondo" "Ouésso" "Madingou" "Owando" "Sibiti" "Loutété"]})
 
@@ -73,25 +73,26 @@
   data)
 
 ; - [ ] checkbox filter
-; - [x] regexp filter
-; - [x] rename :filter -> :active-filters
-; - [x] do not close popup after first selection
-; - [x] use checkboxes instead of checkmarks
-; - [x] share filter state between stats and filters
-; - [x] abstract away filter fn
-; - [x] reset in :text filter
-; - [ ] type inside multiselect
 ; - [ ] arrow keys in multiselect
-; - [x] Portal for popup
-; - [x] Scroll dropdown content if it doesn’t fit on screen
 ; - [ ] Make ranges/histogram pretty
 ; - [ ] :unique doesn’t work
 ; - [ ] Resize should go into react tree
 ; - [ ] Resize should be in %
-; - [x] Populate pre-set filters on first load
 ; - [ ] Resize on first load of incomplete data
 ; - [ ] Maybe move filters behind a button
 ; - [ ] Maybe move stats behind a button
 ; - [ ] Column reorder
 ; - [ ] Hide columns
 ; - [ ] Subheaders in clerk
+; - [ ] Unicode-aware filtering
+; - [x] type inside multiselect
+; - [x] regexp filter
+; - [x] abstract away filter fn
+; - [x] rename :filter -> :active-filters
+; - [x] share filter state between stats and filters
+; - [x] Populate pre-set filters on first load
+; - [x] reset in :text filter
+; - [x] Portal for popup
+; - [x] Scroll dropdown content if it doesn’t fit on screen
+; - [x] do not close popup after first selection
+; - [x] use checkboxes instead of checkmarks

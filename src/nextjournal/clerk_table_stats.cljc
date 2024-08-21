@@ -283,7 +283,7 @@
 
 (defmethod col-filter-fn :substring [[_ s]]
   (when (and (not (nil? s)) (not= "" s))
-    (let [ls (str/lower-case s)]
+    (let [ls (-> s str/trim str/lower-case)]
       (fn [value]
         (str/includes? (str/lower-case (str value)) ls)))))
 

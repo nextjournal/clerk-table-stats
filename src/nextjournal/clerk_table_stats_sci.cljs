@@ -190,46 +190,58 @@
     :style (when checked?
              {:background-image "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"})}])
 
+(def input-classes
+  ["w-full" "cursor-default" "rounded" "px-2" "shadow-sm" "ring-1" "ring-slate-300"
+   "font-normal" "placeholder-slate-400" "py-0.5" "focus:outline-none" "focus:ring-2"
+   "focus:ring-blue-500" "sm:text-sm" "sm:leading-6" "bg-white"])
+
+(defn merge-attrs [a b]
+  (cond
+    (and (string? a) (string? b))
+    (str a " " b)
+
+    (and (sequential? a) (sequential? b))
+    (concat a b)
+
+    :else
+    b))
+
+(defn input [value set-value opts]
+  [:div.relative.flex.items-center
+   [:input
+    (merge-with merge-attrs
+                {:class     input-classes
+                 :type      :text
+                 :value     value
+                 :on-change (fn [event]
+                              (set-value (.. event -currentTarget -value)))}
+                opts)]
+   (when (not= "" value)
+     [:span.absolute.right-1
+      {:on-pointer-down
+       (fn [event]
+         (let [target (.-currentTarget event)
+               input  (.-previousElementSibling target)]
+           (set-value "")
+           ;; keep focus
+           (.preventDefault event)))}
+      [icon-reset]])])
+
 (defn table-col-filter-text [filter-type {:keys [table-state idx]}]
-  (let [value (-> @table-state :active-filters (get idx) filter-type (or ""))]
-    [:div.relative
-     [:input.w-full.cursor-default.rounded.px-2.shadow-sm.ring-1.ring-slate-300.font-normal
-      {:class ["placeholder-slate-400"
-               "py-0.5"
-               "focus:outline-none"
-               "focus:ring-2"
-               "focus:ring-blue-500"
-               "sm:text-sm"
-               "sm:leading-6"
-               "bg-white"]
-       :type :text
-       :placeholder (-> filter-type name str/capitalize (str "..."))
-       :defaultValue value
-       :on-input (fn [event]
-                   (let [value (.. event -currentTarget -value)]
-                     (if (str/blank? value)
-                       (swap! table-state update-in [:active-filters idx] dissoc filter-type)
-                       (swap! table-state assoc-in [:active-filters idx filter-type] (str/trim value)))))}]
-     (when (not= "" value)
-       [:span.absolute.inset-y-0.right-0.flex.items-center.pr-1
-        {:on-click (fn [event]
-                     (let [target (.-currentTarget event)
-                           input  (.-previousElementSibling target)]
-                       (swap! table-state update-in [:active-filters idx] dissoc filter-type)
-                       (set! (.-value input) "")))}
-        [icon-reset]])]))
+  (let [value     (-> @table-state :active-filters (get idx) filter-type (or ""))
+        set-value (fn [value]
+                    (if (str/blank? value)
+                      (swap! table-state update-in [:active-filters idx] dissoc filter-type)
+                      (swap! table-state assoc-in [:active-filters idx filter-type] (str/trim value))))]
+    [input value set-value
+     {:placeholder (-> filter-type name str/capitalize (str "..."))}]))
 
 (defn find-parent [node pred]
   (loop [node node]
     (cond
-      (pred node)
-      node
-
-      (nil? node)
-      nil
-
-      :else
-      (recur (.-parentNode node)))))
+      (pred node) node
+      (nil? node) nil
+      :else (recur (.-parentNode node)))))
 
 (defn child? [node parent]
   (boolean
@@ -237,13 +249,9 @@
 
 (defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
   (r/with-let [!expanded    (r/atom false)
+               !input-text  (r/atom "")
                !portal-root (atom nil)
-               value->str   #(cond
-                               (= :nextjournal/missing %)
-                               "N/A"
-
-                               :else
-                               (str %))
+               value->str   #(if (= :nextjournal/missing %) "N/A" (str %))
                !scroll-left (r/atom 0)]
     (let [!button-ref (hooks/use-ref nil)
           !popup-ref  (hooks/use-ref nil)
@@ -258,7 +266,9 @@
 
                             (and @!expanded
                                  (not (child? (.-target event) @!popup-ref)))
-                            (reset! !expanded false)))]
+                            (do
+                              (reset! !expanded false)
+                              (reset! !input-text ""))))]
            (js/document.addEventListener "click" on-click)
            #(js/document.removeEventListener "click" on-click))))
       ;; find portal root
@@ -281,29 +291,23 @@
            #(.removeEventListener container "scroll" callback))))
       ;; DOM
       [:<>
-       [:button.block.font-normal.relative.w-full.cursor-default.rounded.text-left.shadow-sm.ring-1.ring-slate-300
+       ;; Dropdown button
+       [:button
         {:ref !button-ref
-         :type "button"
-         :aria-haspopup "listbox"
-         :aria-expanded (str (boolean @!expanded))
-         :class ["pl-2"
-                 "pr-7"
-                 "py-0.5"
-                 "focus:outline-none"
-                 "focus:ring-2"
-                 "focus:ring-blue-500"
-                 "sm:text-sm"
-                 "sm:leading-6"
-                 (if @!expanded
-                   "bg-slate-100"
-                   "bg-white")]}
+         :class ["block" "relative" "font-normal" "w-full" "cursor-default"
+                 "rounded" "text-left" "shadow-sm" "ring-1" "ring-slate-300"
+                 "pl-2" "pr-7" "py-0.5" "bg-white" "focus:outline-none"
+                 "focus:ring-2" "focus:ring-blue-500" "sm:text-sm" "sm:leading-6"]}
         (if (empty? selected)
           [:span.block.truncate.text-slate-400 "Select..."]
           [:span.block.truncate (->> selected
                                      (map value->str)
                                      (str/join ", "))])
-        [:span.pointer-events-none.absolute.inset-y-0.right-0.flex.items-center.pr-1
+        [:span.pointer-events-none.absolute.inset-y-0.right-1.flex.items-center
+         {:class (when @!expanded
+                   ["rotate-180"])}
          [icon-chevron]]]
+       ;; Popup menu
        (when @!expanded
          (react-dom/createPortal
           (r/as-element
@@ -312,32 +316,45 @@
              :tabindex "-1"
              :role "listbox"
              :class ["focus:outline-none" "sm:text-sm"]
-             :style (let [button    @!button-ref
-                          bottom    (+ (.-offsetTop button)
-                                       (.-offsetHeight button))
-                          left      (- (.-offsetLeft button) @!scroll-left)]
+             :style (let [parent @!button-ref
+                          bottom (+ (.-offsetTop parent)
+                                    (.-offsetHeight parent))
+                          left   (- (.-offsetLeft parent) @!scroll-left)]
                       {:left       left
                        :top        (str "calc(" bottom "px + 0.25rem)")
-                       :min-width  (.-offsetWidth button)
+                       :min-width  (.-offsetWidth parent)
                        :max-height "50svh"})}
-            (for [value (sort-by str (:values filter-data))]
-              [:li.cursor-default.select-none.flex
-               {:role "option"
-                :class ["pl-2"
-                        "pr-3"
-                        "py-0.5"
-                        "gap-1.5"
-                        "hover:bg-slate-200"
-                        "sm:text-sm"
-                        "sm:leading-6"]
-                :on-pointer-down
-                (fn [_]
-                  (if (some? (selected value))
-                    (swap! table-state update-in [:active-filters idx :one-of] disj value)
-                    (swap! table-state update-in [:active-filters idx :one-of] (fnil conj #{}) value)))}
-               [:span.flex.items-center
-                [checkbox (some? (selected value))]]
-               (value->str value)])])
+            [:li {:class ["px-2" "pt-1" "pb-1.5"]}
+             [input @!input-text #(reset! !input-text %)
+              {:placeholder "Filter..."}]]
+            (let [input-text (-> @!input-text str/trim str/lower-case)
+                  values     (->> (:values filter-data)
+                                  (map #(vector % (value->str %) (-> % value->str str/trim str/lower-case)))
+                                  (sort-by
+                                   (fn [[value _ value-str]]
+                                     (if (= :nextjournal/missing value)
+                                       "\uD7FF" ;; sort last
+                                       value-str)))
+                                  (filter #(str/index-of (nth % 2) input-text)))
+                  li-classes ["cursor-default" "select-none" "flex" "px-2" "py-0.5"
+                              "gap-1.5" "sm:text-sm" "sm:leading-6"]]
+              (if (empty? values)
+                [:li {:role "option"
+                      :class (concat li-classes ["text-slate-400"])}
+                 "-- No matches --"]
+                (for [[value value-str _] values]
+                  [:li
+                   {:role "option"
+                    :class (concat li-classes ["hover:bg-slate-200"])
+                    :on-pointer-down
+                    (fn [e]
+                      (if (some? (selected value))
+                        (swap! table-state update-in [:active-filters idx :one-of] disj value)
+                        (swap! table-state update-in [:active-filters idx :one-of] (fnil conj #{}) value))
+                      (.preventDefault e))}
+                   [:span.flex.items-center
+                    [checkbox (some? (selected value))]]
+                   value-str])))])
           @!portal-root))])))
 
 (defn table-col-filter [{:as opts
