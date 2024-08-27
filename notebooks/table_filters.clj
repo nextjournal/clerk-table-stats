@@ -72,6 +72,12 @@
                         :stats false}}
   data)
 
+; - [ ] Sorting
+; - [ ] Search with placeholder (glob patterns)
+; - [ ] Not operator
+; - [ ] Rename project to clerk-data-tables
+; - [ ] Sort numbers as numbers
+; - [ ] Better data structure to store active filters
 ; - [ ] checkbox filter
 ; - [ ] arrow keys in multiselect
 ; - [ ] Make ranges/histogram pretty

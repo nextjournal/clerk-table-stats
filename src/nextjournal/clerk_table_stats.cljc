@@ -264,6 +264,14 @@
          data)))
    data active-filters))
 
+(defn compute-autocomplete-data [{:as data :keys [rows visible-paths]}
+                                 {:as opts :keys [active-filters]}]
+  (reduce
+   (fn [data idx]
+     (let [values (into #{} (map #(nth % idx)) rows)]
+       (update data :autocomplete-data assoc idx {:values values})))
+   data (range 0 (count visible-paths))))
+
 (comment
   (compute-col-summary ["a" "b" "a" "a" nil "" "c" "d" "d" :foo])
   (compute-col-summary [1 1 1 5 2 2 0 0 1 40 51 21])
@@ -332,21 +340,11 @@
                :else nil)
        stats (compute-table-summary opts)
        active-filters (compute-filters-data opts)
+       true (compute-autocomplete-data opts)
        true (update :rows #(filter row-filter-fn %))))))
 
 (def table-markup-viewer
-  {:render-fn '(fn [head+body {:as opts :keys [sync-var]}]
-                 (reagent.core/with-let [table-state (if sync-var
-                                                       (deref sync-var)
-                                                       #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
-                                                          :cljs nil))]
-                   [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
-                    {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
-                    (into
-                     [:table.w-full]
-                     (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
-                     ;; debug atom+head+body #_
-                     head+body)]))})
+  {:render-fn 'nextjournal.clerk-table-stats-sci/table-markup-viewer})
 
 (def table-head-viewer
   {:require-cljs true
@@ -404,7 +402,7 @@
                  table-state #?(:clj @@(resolve var-name)
                                 :cljs nil)]
 
-             (if-let [{:keys [head rows summary filter-data state]}
+             (if-let [{:keys [head rows summary filter-data autocomplete-data state]}
                       (normalize-table-data (merge render-opts table-state)
                                             (viewer/->value wrapped-value))]
                (-> wrapped-value
@@ -421,6 +419,7 @@
                                                            :summary summary
                                                            :initial-table-state table-state
                                                            :filter-data filter-data
+                                                           :autocomplete-data autocomplete-data
                                                            :state state})
                    (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)
                    (assoc :nextjournal/value (cond->> []

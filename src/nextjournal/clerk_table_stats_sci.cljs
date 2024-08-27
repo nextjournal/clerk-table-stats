@@ -1,5 +1,9 @@
 (ns nextjournal.clerk-table-stats-sci
-  (:require [clojure.string :as str]
+  (:require ["@codemirror/language" :refer [HighlightStyle syntaxHighlighting LanguageDescription]]
+            ["@codemirror/state" :refer [Compartment EditorState RangeSet RangeSetBuilder Text]]
+            ["@codemirror/view" :refer [EditorView ViewPlugin Decoration]]
+            [applied-science.js-interop :as j]
+            [clojure.string :as str]
             ["react-dom" :as react-dom]
             [reagent.core :as r]
             [nextjournal.clerk.render.hooks :as hooks]
@@ -427,8 +431,8 @@
                              (swap! table-state update :active-filters dissoc idx)))
                          (reset! !expanded false))}
             [:span.size-5.mr-1
-             (when selected? 
-              [icon-checkmark])]
+             (when selected?
+               [icon-checkmark])]
             name])]]])))
 
 (defn table-head-viewer
@@ -539,6 +543,278 @@
                        "text-right")]}
             (nextjournal.clerk.render/inspect-presented opts cell)]))
         row))
+
+(defn get-theme []
+  (.theme EditorView
+          (j/lit {"&" {:box-shadow "#CBD5E1 0 0 0 1px inset"
+                       :border-radius "0.25rem"
+                       :padding "0.125rem 0"}
+                  "&.cm-focused" {:outline "none"
+                                  :box-shadow "#3C82F6 0 0 0 2px inset"}
+                  ".cm-line" {; :padding "0"
+                              :line-height "1.25rem"
+                              :font-size "0.875rem"
+                              :font-family "Fira Sans, -apple-system, BlinkMacSystemFont, sans-serif"}})))
+
+(defn on-change-ext [!view f]
+  (.. EditorState -transactionExtender
+      (of (fn [^js tr]
+            (when (.-docChanged tr)
+              (f (.. tr -state sliceDoc)))
+            #js {}))))
+
+(def theme
+  (Compartment.))
+
+(def ^:export default-extensions
+  #js [#_clojure-mode/default-extensions
+       #_(syntaxHighlighting highlight-style)
+       (.of theme (get-theme))])
+
+(defn make-state [doc extensions]
+  (.create EditorState (j/obj :doc doc :extensions extensions)))
+
+(defn make-view [state parent]
+  (EditorView. (j/obj :state state :parent parent)))
+
+(defn editor
+  ([!code-str]
+   (editor !code-str {}))
+  ([!code-str {:keys [extensions on-change on-view-update]
+               :or {on-change #(reset! !code-str %)}}]
+   (let [!container-el (hooks/use-ref nil)
+         !view         (hooks/use-ref nil)]
+     ;; view instance is built only once
+     (hooks/use-effect
+      (fn []
+        (let [^js view (reset! !view
+                               (make-view
+                                (make-state @!code-str
+                                            (cond-> default-extensions
+                                              (seq extensions)
+                                              (.concat extensions)
+
+                                              on-change
+                                              (.concat (on-change-ext !view on-change))
+
+                                              on-view-update
+                                              (.concat (.define ViewPlugin
+                                                                (fn [^js view]
+                                                                  #js {:update (j/fn [update]
+                                                                                 (js/setTimeout #(on-view-update view update) 0))})))))
+                                @!container-el))]
+          #(.destroy view))))
+     (hooks/use-effect
+      (fn []
+        (let [^js state (.-state @!view)]
+          (when (not= @!code-str (.sliceDoc state))
+            (.dispatch @!view
+                       (.update state
+                                (j/lit {:changes [{:insert @!code-str
+                                                   :from 0 :to (.. state -doc -length)}]}))))))
+      [@!code-str])
+     #_(use-dark-mode !view)
+     [:div {:ref !container-el}])))
+
+(defn matches [keys text #_prefix]
+  (if (str/blank? text)
+    keys
+    (let [text (-> text str/lower-case str/trim)]
+      (->>
+       (concat
+        (filter #(str/starts-with? (str/lower-case %) text) keys)
+        #_(filter #(str/starts-with? % prefix) keys)
+        (filter #(str/index-of (str/lower-case %) text) keys)
+        #_(filter #(str/index-of % prefix) keys))
+       distinct
+       not-empty))))
+
+(def filter-regexp
+  (let [modifier  "(?<modifier>[+-])?"
+        key-q     "'(?<key>[^']*)(?:'|$)"
+        key-qq    "\"(?<key>[^\"]*)(?:\"|$)"
+        key       "(?<key>[^\\s:]*)"
+        delimeter "(?<delimeter>:)"
+        value-q   "'(?<value>[^']*)(?:'|$)"
+        value-qq  "\"(?<value>[^\"]*)(?:\"|$)"
+        value     "(?<value>[^\\s]*)"]
+    (js/RegExp. (str modifier
+                     "(?<fullkey>" key-q "|" key-qq "|" key ")"
+                     "(?:" delimeter
+                     "(?<fullvalue>" value-q "|" value-qq "|" value ")"
+                     ")?")
+                "g")))
+
+#_(doseq [modifier ["" "+" "-"]
+          key      ["key" "'a key'" "'a:key'" "\"a key\"" "\"a:key\""]
+          delim    [nil ":"]
+          value    (if delim
+                     [nil "value" "a:value" "'a value'" "'a:value'" "\"a value\"" "\"a:value\""]
+                     [nil])
+          :let     [s    (str modifier key delim value)]
+          m        (.matchAll s filter-regexp)
+          :let     [mod' (-> m .-groups .-modifier)
+                    key' (-> m .-groups .-key)
+                    val' (-> m .-groups .-value)]]
+    (js/console.log s mod' key' val'))
+
+(defn not-blank [s]
+  (when-not (str/blank? s)
+    s))
+
+(defn parse-query [s]
+  (for [match (.matchAll s filter-regexp)
+        :let [groups    (.-groups match)
+              start     (.-index match)
+              full      (aget match 0)
+              modifier  (-> groups .-modifier not-blank)
+              key       (-> groups .-key not-blank)
+              delimeter (-> groups .-delimeter not-blank)
+              value     (-> groups .-value not-blank)]]
+    {:start-idx   start
+     :modifier    modifier
+     :key-quote   (when-some [fullkey (-> groups .-fullkey not-blank)]
+                    (#{"'" "\""} (subs fullkey 0 1)))
+     :key         key
+     :value-idx   (when delimeter
+                    (+ start
+                       (count (or modifier ""))
+                       (count (-> groups .-fullkey))
+                       (count delimeter)))
+     :value-quote (when-some [fullvalue (-> groups .-fullvalue not-blank)]
+                    (#{"'" "\""} (subs fullvalue 0 1)))
+     :value       value
+     :end-idx     (+ start (count full))}))
+
+(defn find [pred xs]
+  (reduce #(when (pred %2) (reduced %2)) nil xs))
+
+(defn quote-key [s quote]
+  (cond
+    quote
+    (str quote s quote)
+
+    (or (str/index-of s " ")
+        (str/index-of s ":"))
+    (str "'" s "'")
+
+    :else
+    s))
+
+(defn quote-value [s quote]
+  (cond
+    quote
+    (str quote s quote)
+
+    (str/index-of s " ")
+    (str "'" s "'")
+
+    :else
+    s))
+
+(defn calculate-suggestions [cells cell->column text pos ^js view opts]
+  (let [regions              (parse-query text)
+        region               (find (fn [{:keys [start-idx end-idx]}]
+                                     (and (< start-idx pos) (<= pos end-idx)))
+                                   regions)
+        {:keys [start-idx
+                modifier
+                key
+                key-quote
+                value
+                value-quote
+                value-idx]}  region
+        key-column           (cell->column key)
+        [labels idx]         (cond
+                               (nil? region)
+                               [(mapv #(str (quote-key % nil) ":") cells) pos]
+
+                               (and value-idx (>= pos value-idx) key-column)
+                               (let [values (-> opts :autocomplete-data (get key-column) :values (matches value))]
+                                 [(mapv #(quote-value % value-quote) values) value-idx])
+
+                               (and value-idx (>= pos value-idx) (nil? key-column))
+                               [[(str "No column “" key "”")] value-idx]
+
+                               :else
+                               (let [keys (matches cells key)]
+                                 (if modifier
+                                   [(mapv #(str modifier (quote-key % key-quote)) keys) start-idx]
+                                   [(mapv #(str (quote-key % key-quote) ":") keys) start-idx])))]
+    (when (seq labels)
+      {:labels labels
+       :idx    idx
+       :right  (.-right (.coordsAtPos view idx))
+       :bottom (.-bottom (.coordsAtPos view idx))})))
+
+(defn adjust-offset-x [x]
+  (-> x
+      (+ (or js/window.pageXOffset
+             (.-scrollLeft js/document.documentElement)
+             (.-scrollLeft js/document.body)))
+      (- (or (.-clientLeft js/document.documentElement)
+             (.-clientLeft js/document.body)
+             0))))
+
+(defn adjust-offset-y [y]
+  (-> y
+      (+ (or js/window.pageYOffset
+             (.-scrollTop js/document.documentElement)
+             (.-scrollTop js/document.body)))
+      (- (or (.-clientTop js/document.documentElement)
+             (.-clientTop js/document.body)
+             0))))
+
+(defn table-search [head+body table-state opts]
+  (r/with-let [!code-str    (r/atom "")
+               !suggestions (r/atom nil)
+               cells        (nextjournal.clerk.viewer/desc->values (first head+body))
+               cells        (mapcat #(if (keyword? %)
+                                       [(name %)]
+                                       (for [sub (second %)]
+                                         (str (name (first %)) "/" (name sub)))) cells)
+               cell->column (into {} (map vector cells (range)))]
+    (let [!div (hooks/use-ref nil)]
+      [:div.mb-2
+       {:ref !div
+        :style {:min-height 35}}
+       [editor !code-str
+        {:on-view-update
+         (fn [view update]
+           (let [range (-> update .-state .-selection .-main)]
+             (if (and
+                  (.-hasFocus view)
+                  (.-empty range))
+               (reset! !suggestions (calculate-suggestions cells cell->column @!code-str (.-to range) view opts))
+               (reset! !suggestions nil))))}]
+       (when-some [{:keys [bottom right labels]} @!suggestions]
+         (react-dom/createPortal
+          (r/as-element
+           [:div {:class ["absolute" "z-10" "overflow-y-scroll" "shadow-xl"]
+                  :style {:left       (- (adjust-offset-x right) 7)
+                          :top        (-> (offset @!div) :top (+ (.-offsetHeight @!div) #_(- 3)))
+                          :max-height "50svh"}}
+            [:ul.rounded-b.font-sans.bg-white.py-1.text-base.shadow-lg.border.border-slate-300.border-t-white.not-prose
+             (for [label labels]
+               [:li {:class ["px-[6px]" "py-0.5" "sm:text-sm" "sm:leading-6" "hover:bg-slate-200"]}
+                label])]])
+          js/document.body))])))
+
+(defn table-markup-viewer [head+body {:as opts :keys [sync-var]}]
+  (reagent.core/with-let [table-state (if sync-var
+                                        (deref sync-var)
+                                        #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
+                                           :cljs nil))]
+    [:div
+     [table-search head+body table-state opts]
+     [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
+      {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
+
+      (into
+       [:table.w-full]
+       (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
+        ;; debug atom+head+body #_
+       head+body)]]))
 
 (comment
   ;; add :jvm-opts ["-Dclerk.render_repl={}"
