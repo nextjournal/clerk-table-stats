@@ -36,3 +36,16 @@
                                          :fahrzeug/expected-customer-delivery-datetime]}}
   data)
 
+;; - [x] up/down arrows
+;; - [x] clicking on result
+;; - [x] inserting autocompleted result
+;; - [ ] actual filtering:
+;;   - [ ] substring
+;;   - [ ] glob
+;;   - [ ] +/-
+;;   - [ ] dates
+;; - [ ] glob patterns in autocomplete
+;; - [ ] top-level search
+;; - [ ] >/>=/</<= syntax
+;; - [ ] dates autocomplete (calendar)
+;; - [ ] exact match syntax

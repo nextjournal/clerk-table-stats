@@ -1,7 +1,7 @@
 (ns nextjournal.clerk-table-stats-sci
   (:require ["@codemirror/language" :refer [HighlightStyle syntaxHighlighting LanguageDescription]]
             ["@codemirror/state" :refer [Compartment EditorState RangeSet RangeSetBuilder Text]]
-            ["@codemirror/view" :refer [EditorView ViewPlugin Decoration]]
+            ["@codemirror/view" :refer [Decoration EditorView keymap ViewPlugin]]
             [applied-science.js-interop :as j]
             [clojure.string :as str]
             ["react-dom" :as react-dom]
@@ -249,16 +249,28 @@
   (boolean
    (find-parent node #(identical? % parent))))
 
+(defn adjust-offset-x [x]
+  (-> x
+      (+ (or js/window.pageXOffset
+             (.-scrollLeft js/document.documentElement)
+             (.-scrollLeft js/document.body)))
+      (- (or (.-clientLeft js/document.documentElement)
+             (.-clientLeft js/document.body)
+             0))))
+
+(defn adjust-offset-y [y]
+  (-> y
+      (+ (or js/window.pageYOffset
+             (.-scrollTop js/document.documentElement)
+             (.-scrollTop js/document.body)))
+      (- (or (.-clientTop js/document.documentElement)
+             (.-clientTop js/document.body)
+             0))))
+
 (defn offset [^js el]
-  (let [box         (.getBoundingClientRect el)
-        body        js/document.body
-        doc-el      js/document.documentElement
-        scroll-top  (or js/window.pageYOffset (.-scrollTop doc-el) (.-scrollTop body))
-        scroll-left (or js/window.pageXOffset (.-scrollLeft doc-el) (.-scrollLeft body))
-        client-top  (or (.-clientTop doc-el) (.-clientTop body) 0)
-        client-left (or (.-clientLeft doc-el) (.-clientLeft body) 0)]
-    {:top (-> (.-top box) (+ scroll-top) (- client-top))
-     :left (-> (.-left box) (+ scroll-left) (- client-left))}))
+  (let [box (.getBoundingClientRect el)]
+    {:top (adjust-offset-y (.-top box))
+     :left (adjust-offset-x (.-left box))}))
 
 (defn popup [opts button-markup popup-markup]
   (r/with-let [!expanded-default (r/atom false)
@@ -566,55 +578,41 @@
 (def theme
   (Compartment.))
 
-(def ^:export default-extensions
-  #js [#_clojure-mode/default-extensions
-       #_(syntaxHighlighting highlight-style)
-       (.of theme (get-theme))])
+(defn editor [{:keys [!text !state !view on-view-update key-bindings]}]
+  (r/with-let [!state (or !view (atom nil))
+               !view  (or !view (atom nil))]
+    (let [!container-el (hooks/use-ref nil)]
+      (hooks/use-effect
+       (fn []
+         (let [extensions (cond-> #js [(.of theme (get-theme))
+                                       (on-change-ext !view #(reset! !text %))]
+                            on-view-update
+                            (.concat
+                             (.define ViewPlugin
+                                      (fn [^js view]
+                                        #js {:update (j/fn [update]
+                                                       (js/setTimeout #(on-view-update view update) 0))})))
 
-(defn make-state [doc extensions]
-  (.create EditorState (j/obj :doc doc :extensions extensions)))
+                            key-bindings
+                            (.concat
+                             (.of keymap (clj->js
+                                          (for [[key callback] key-bindings]
+                                            {:key key :run callback})))))
+               state (.create EditorState #js {:doc @!text
+                                               :extensions extensions})
+               view  (EditorView. #js {:state state
+                                       :parent @!container-el})]
+           (reset! !state state)
+           (reset! !view view)
+           #(.destroy view))))
+      [:div {:ref !container-el}])))
 
-(defn make-view [state parent]
-  (EditorView. (j/obj :state state :parent parent)))
+(defn find [pred xs]
+  (reduce #(when (pred %2) (reduced %2)) nil xs))
 
-(defn editor
-  ([!code-str]
-   (editor !code-str {}))
-  ([!code-str {:keys [extensions on-change on-view-update]
-               :or {on-change #(reset! !code-str %)}}]
-   (let [!container-el (hooks/use-ref nil)
-         !view         (hooks/use-ref nil)]
-     ;; view instance is built only once
-     (hooks/use-effect
-      (fn []
-        (let [^js view (reset! !view
-                               (make-view
-                                (make-state @!code-str
-                                            (cond-> default-extensions
-                                              (seq extensions)
-                                              (.concat extensions)
-
-                                              on-change
-                                              (.concat (on-change-ext !view on-change))
-
-                                              on-view-update
-                                              (.concat (.define ViewPlugin
-                                                                (fn [^js view]
-                                                                  #js {:update (j/fn [update]
-                                                                                 (js/setTimeout #(on-view-update view update) 0))})))))
-                                @!container-el))]
-          #(.destroy view))))
-     (hooks/use-effect
-      (fn []
-        (let [^js state (.-state @!view)]
-          (when (not= @!code-str (.sliceDoc state))
-            (.dispatch @!view
-                       (.update state
-                                (j/lit {:changes [{:insert @!code-str
-                                                   :from 0 :to (.. state -doc -length)}]}))))))
-      [@!code-str])
-     #_(use-dark-mode !view)
-     [:div {:ref !container-el}])))
+(defn not-blank [s]
+  (when-not (str/blank? s)
+    s))
 
 (defn matches [keys text #_prefix]
   (if (str/blank? text)
@@ -658,10 +656,6 @@
                     val' (-> m .-groups .-value)]]
     (js/console.log s mod' key' val'))
 
-(defn not-blank [s]
-  (when-not (str/blank? s)
-    s))
-
 (defn parse-query [s]
   (for [match (.matchAll s filter-regexp)
         :let [groups    (.-groups match)
@@ -685,9 +679,6 @@
                     (#{"'" "\""} (subs fullvalue 0 1)))
      :value       value
      :end-idx     (+ start (count full))}))
-
-(defn find [pred xs]
-  (reduce #(when (pred %2) (reduced %2)) nil xs))
 
 (defn quote-key [s quote]
   (cond
@@ -713,90 +704,126 @@
     s))
 
 (defn calculate-suggestions [cells cell->column text pos ^js view opts]
-  (let [regions              (parse-query text)
-        region               (find (fn [{:keys [start-idx end-idx]}]
-                                     (and (< start-idx pos) (<= pos end-idx)))
-                                   regions)
-        {:keys [start-idx
-                modifier
-                key
-                key-quote
-                value
-                value-quote
-                value-idx]}  region
-        key-column           (cell->column key)
-        [labels idx]         (cond
-                               (nil? region)
-                               [(mapv #(str (quote-key % nil) ":") cells) pos]
+  (let [regions (parse-query text)
+        region (find (fn [{:keys [start-idx end-idx]}]
+                       (and (< start-idx pos) (<= pos end-idx)))
+                     regions)
+        {:keys [start-idx modifier key key-quote value value-quote value-idx end-idx]} region
+        key-column (cell->column key)
+        
+        [labels from-idx to-idx]
+        (cond
+          (and (nil? region) (str/blank? text))
+          [(mapv #(str (quote-key % nil) ":") cells) pos pos]
 
-                               (and value-idx (>= pos value-idx) key-column)
-                               (let [values (-> opts :autocomplete-data (get key-column) :values (matches value))]
-                                 [(mapv #(quote-value % value-quote) values) value-idx])
+          (nil? region)
+          nil
 
-                               (and value-idx (>= pos value-idx) (nil? key-column))
-                               [[(str "No column “" key "”")] value-idx]
+          (and value-idx (>= pos value-idx) key-column)
+          (let [values (-> opts :autocomplete-data (get key-column) :values (->> (map str) sort) (matches value))]
+            [(mapv #(str (quote-value % value-quote) " ") values) value-idx end-idx])
 
-                               :else
-                               (let [keys (matches cells key)]
-                                 (if modifier
-                                   [(mapv #(str modifier (quote-key % key-quote)) keys) start-idx]
-                                   [(mapv #(str (quote-key % key-quote) ":") keys) start-idx])))]
+          (and value-idx (>= pos value-idx) (nil? key-column))
+          [[(str "No column “" key "”")] value-idx value-idx]
+
+          :else
+          (let [keys (matches cells key)]
+            (if modifier
+              [(mapv #(str modifier (quote-key % key-quote) " ") keys) start-idx (or value-idx end-idx)]
+              [(mapv #(str (quote-key % key-quote) ":") keys) start-idx (or value-idx end-idx)])))]
     (when (seq labels)
-      {:labels labels
-       :idx    idx
-       :right  (.-right (.coordsAtPos view idx))
-       :bottom (.-bottom (.coordsAtPos view idx))})))
-
-(defn adjust-offset-x [x]
-  (-> x
-      (+ (or js/window.pageXOffset
-             (.-scrollLeft js/document.documentElement)
-             (.-scrollLeft js/document.body)))
-      (- (or (.-clientLeft js/document.documentElement)
-             (.-clientLeft js/document.body)
-             0))))
-
-(defn adjust-offset-y [y]
-  (-> y
-      (+ (or js/window.pageYOffset
-             (.-scrollTop js/document.documentElement)
-             (.-scrollTop js/document.body)))
-      (- (or (.-clientTop js/document.documentElement)
-             (.-clientTop js/document.body)
-             0))))
+      {:labels    labels
+       :selected  0
+       :from-idx  from-idx
+       :to-idx    to-idx
+       :right     (.-right (.coordsAtPos view from-idx))
+       :bottom    (.-bottom (.coordsAtPos view from-idx))})))
 
 (defn table-search [head+body table-state opts]
-  (r/with-let [!code-str    (r/atom "")
-               !suggestions (r/atom nil)
-               cells        (nextjournal.clerk.viewer/desc->values (first head+body))
-               cells        (mapcat #(if (keyword? %)
-                                       [(name %)]
-                                       (for [sub (second %)]
-                                         (str (name (first %)) "/" (name sub)))) cells)
-               cell->column (into {} (map vector cells (range)))]
+  (r/with-let [!text             (r/atom "")
+               !state            (atom nil)
+               !view             (atom nil)
+               !suggestions      (r/atom nil)
+               cells             (nextjournal.clerk.viewer/desc->values (first head+body))
+               cells             (mapcat #(if (keyword? %)
+                                            [(name %)]
+                                            (for [sub (second %)]
+                                              (str (name (first %)) "/" (name sub)))) cells)
+               cell->column      (into {} (map vector cells (range)))
+               accept-suggestion (fn [view selected]
+                                   (when selected
+                                     (when-some [{:keys [from-idx to-idx labels]} @!suggestions]
+                                       (let [label  (nth labels selected)
+                                             text'  (str
+                                                     (subs @!text 0 from-idx)
+                                                     label
+                                                     (subs @!text to-idx (count @!text)))
+                                             sel'   (+ from-idx (count label))
+                                             update #js {:changes #js [#js {:insert label
+                                                                            :from   from-idx
+                                                                            :to     to-idx}]
+                                                         :selection #js {:anchor sel'
+                                                                         :head   sel'}}]
+                                         (reset! !text text')
+                                         (.dispatch view (.update (.-state view) update))))))]
     (let [!div (hooks/use-ref nil)]
       [:div.mb-2
        {:ref !div
         :style {:min-height 35}}
-       [editor !code-str
-        {:on-view-update
+       [editor
+        {:!text  !text
+         :!state !state
+         :!view  !view
+         :on-view-update
          (fn [view update]
            (let [range (-> update .-state .-selection .-main)]
              (if (and
                   (.-hasFocus view)
                   (.-empty range))
-               (reset! !suggestions (calculate-suggestions cells cell->column @!code-str (.-to range) view opts))
-               (reset! !suggestions nil))))}]
-       (when-some [{:keys [bottom right labels]} @!suggestions]
+               (reset! !suggestions (calculate-suggestions cells cell->column @!text (.-to range) view opts))
+               (reset! !suggestions nil))))
+         :key-bindings
+         {"ArrowUp"   (fn [view]
+                        (when-some [suggestions @!suggestions]
+                          (swap! !suggestions update :selected
+                                 #(-> % (or (count (:labels suggestions))) dec (max 0)))
+                          true))
+          "ArrowDown" (fn [view]
+                        (when-some [suggestions @!suggestions]
+                          (swap! !suggestions update :selected
+                                 #(-> % (or -1) inc (min (dec (count (:labels suggestions))))))
+                          true))
+          "Enter"     (fn [view]
+                        (accept-suggestion view (:selected @!suggestions))
+                        true)
+          "Tab"       (fn [view]
+                        (accept-suggestion view (:selected @!suggestions))
+                        true)
+          "Escape"    (fn [view]
+                        (when-some [suggestions @!suggestions]
+                          (reset! !suggestions nil)
+                          true))}}]
+       (when-some [{:keys [bottom right from-idx to-idx labels selected]} @!suggestions]
          (react-dom/createPortal
           (r/as-element
-           [:div {:class ["absolute" "z-10" "overflow-y-scroll" "shadow-xl"]
-                  :style {:left       (- (adjust-offset-x right) 7)
-                          :top        (-> (offset @!div) :top (+ (.-offsetHeight @!div) #_(- 3)))
-                          :max-height "50svh"}}
-            [:ul.rounded-b.font-sans.bg-white.py-1.text-base.shadow-lg.border.border-slate-300.border-t-white.not-prose
-             (for [label labels]
-               [:li {:class ["px-[6px]" "py-0.5" "sm:text-sm" "sm:leading-6" "hover:bg-slate-200"]}
+           [:div
+            {:class ["rounded-b" "font-sans" "bg-white" "py-1" "text-base"
+                     "shadow-lg" "border" "border-slate-300" "border-t-white"
+                     "not-prose" "absolute" "z-10" "overflow-y-scroll" "shadow-xl"]
+             :style {:left       (- (adjust-offset-x right) 7)
+                     :top        (-> (offset @!div) :top (+ (.-offsetHeight @!div) #_(- 3)))
+                     :max-height "50svh"}}
+            [:ul
+             (for [[idx label] (map vector (range) labels)]
+               [:li {:class
+                     ["px-[6px]" "py-0.5" "sm:text-sm" "sm:leading-6"
+                      (when (= idx selected) "bg-slate-200")]
+                     :on-mouse-over
+                     (fn [_]
+                       (swap! !suggestions assoc :selected idx))
+                     :on-click
+                     (fn [_]
+                       (accept-suggestion @!view idx))}
                 label])]])
           js/document.body))])))
 
