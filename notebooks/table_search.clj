@@ -51,4 +51,4 @@
 ;; - [ ] >/>=/</<= syntax
 ;; - [ ] dates autocomplete (calendar)
 ;; - [ ] exact match syntax
-;; - [ ] restore filter after reload
+;; - [x] restore filter after reload

@@ -744,7 +744,7 @@
        :bottom    (.-bottom (.coordsAtPos view from-idx))})))
 
 (defn table-search [head+body table-state opts]
-  (r/with-let [!text             (r/atom "")
+  (r/with-let [!text             (r/atom (or (:search-query @table-state) ""))
                !state            (atom nil)
                !view             (atom nil)
                !suggestions      (r/atom nil)
