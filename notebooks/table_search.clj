@@ -10,29 +10,31 @@
             [nextjournal.clerk-table-stats :as clerk-table-stats]))
 
 (def data
-  (taoensso.nippy/thaw-from-file "notebooks/dispatchable_vehicles.nippy"))
+  (taoensso.nippy/thaw-from-file "notebooks/vehicles.nippy"))
 
 #_^{:nextjournal.clerk/visibility {:result :show}}
-  (first data)
+  (clerk/table data)
 
 ^{:nextjournal.clerk/visibility {:result :show}}
 (clerk/with-viewer clerk-table-stats/viewer
   {::clerk/render-opts {:group-headers true
-                        :column-order [:vehicle/vin
-                                       :make/name
-                                       :vehicle/model
-                                       :vehicle/weight
-                                       [:transport/origin [:address/city :address/street]]
-                                       [:transport/destination [:address/city :address/street]]
-                                       :fahrzeug/expected-customer-delivery-datetime]
-
-                        :select-columns [:make/name
-                                         :vehicle/model
-                                         :vehicle/vin
-                                         :vehicle/weight
-                                         [:transport/origin [:address/city :address/street]]
-                                         [:transport/destination [:address/city :address/street]]
-                                         :fahrzeug/expected-customer-delivery-datetime]}}
+                        :column-order [:expected
+                                       :entry
+                                       :expected-exit
+                                       :exit
+                                       :delivery-dealer-code
+                                       :expected-customer-delivery
+                                       :blocked
+                                       :customs-number
+                                       :workflow
+                                       :parked-at
+                                       :vin
+                                       :make
+                                       :model
+                                       :engine-type
+                                       :customer
+                                       :weight
+                                       [:entry-transport-order [:carrier-code :mode :origin-location :spediteur]]]}}
   data)
 
 ;; - [x] up/down arrows
@@ -43,9 +45,10 @@
 ;;   - [ ] glob
 ;;   - [x] +/-
 ;;   - [ ] dates
-;; - [ ] get more realistic data
+;; - [x] get more realistic data
 ;; - [ ] glob patterns in autocomplete
 ;; - [ ] top-level search
 ;; - [ ] >/>=/</<= syntax
 ;; - [ ] dates autocomplete (calendar)
 ;; - [ ] exact match syntax
+;; - [ ] restore filter after reload
