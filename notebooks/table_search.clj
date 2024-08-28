@@ -46,6 +46,8 @@
 ;;   - [x] +/-
 ;;   - [ ] dates
 ;; - [x] get more realistic data
+;; - [ ] search for multiple values (e.g. make:bmw,ford,kia)
+;; - [ ] tolerate some reasonable amount of whitespace
 ;; - [ ] glob patterns in autocomplete
 ;; - [ ] top-level search
 ;; - [ ] >/>=/</<= syntax
