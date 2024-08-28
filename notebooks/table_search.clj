@@ -4,8 +4,7 @@
    :nextjournal.clerk/no-cache true
    :nextjournal.clerk/auto-expand-results? true
    :nextjournal.clerk/visibility {:code :hide :result :hide}}
-  (:require [clojure.data.csv :as csv]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.math :as math]
             [nextjournal.clerk :as clerk]
             [nextjournal.clerk-table-stats :as clerk-table-stats]))
@@ -14,7 +13,7 @@
   (taoensso.nippy/thaw-from-file "notebooks/dispatchable_vehicles.nippy"))
 
 #_^{:nextjournal.clerk/visibility {:result :show}}
-(first data)
+  (first data)
 
 ^{:nextjournal.clerk/visibility {:result :show}}
 (clerk/with-viewer clerk-table-stats/viewer
@@ -26,7 +25,7 @@
                                        [:transport/origin [:address/city :address/street]]
                                        [:transport/destination [:address/city :address/street]]
                                        :fahrzeug/expected-customer-delivery-datetime]
-                                         
+
                         :select-columns [:make/name
                                          :vehicle/model
                                          :vehicle/vin
@@ -40,10 +39,11 @@
 ;; - [x] clicking on result
 ;; - [x] inserting autocompleted result
 ;; - [ ] actual filtering:
-;;   - [ ] substring
+;;   - [x] substring
 ;;   - [ ] glob
-;;   - [ ] +/-
+;;   - [x] +/-
 ;;   - [ ] dates
+;; - [ ] get more realistic data
 ;; - [ ] glob patterns in autocomplete
 ;; - [ ] top-level search
 ;; - [ ] >/>=/</<= syntax

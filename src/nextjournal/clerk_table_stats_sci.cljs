@@ -578,7 +578,7 @@
 (def theme
   (Compartment.))
 
-(defn editor [{:keys [!text !state !view on-view-update key-bindings]}]
+(defn editor [{:keys [!text !state !view on-change on-view-update key-bindings]}]
   (r/with-let [!state (or !view (atom nil))
                !view  (or !view (atom nil))]
     (let [!container-el (hooks/use-ref nil)]
@@ -586,6 +586,10 @@
        (fn []
          (let [extensions (cond-> #js [(.of theme (get-theme))
                                        (on-change-ext !view #(reset! !text %))]
+                            on-change
+                            (.concat
+                             (on-change-ext !view on-change))
+                            
                             on-view-update
                             (.concat
                              (.define ViewPlugin
@@ -713,7 +717,7 @@
         
         [labels from-idx to-idx]
         (cond
-          (and (nil? region) (str/blank? text))
+          #_#_(and (nil? region) (str/blank? text))
           [(mapv #(str (quote-key % nil) ":") cells) pos pos]
 
           (nil? region)
@@ -774,6 +778,9 @@
         {:!text  !text
          :!state !state
          :!view  !view
+         :on-change
+         (fn [text']
+           (swap! table-state assoc :search-query text'))
          :on-view-update
          (fn [view update]
            (let [range (-> update .-state .-selection .-main)]

@@ -1,6 +1,7 @@
 ;; # 📊 Clerk Table Stats
 ^{:nextjournal.clerk/visibility :hide-ns}
 (ns nextjournal.clerk-table-stats
+  (:refer-clojure :exclude [find])
   (:require #?(:clj [nextjournal.clerk :as clerk]
                :cljs [nextjournal.clerk :as-alias clerk])
             [nextjournal.clerk.viewer :as viewer]
@@ -22,15 +23,14 @@
   (deep-merge {:a {:b {:c 3}}} {:a {:b {:c 4 :d 5}}})
   (deep-merge {:a {:b {:c 4 :d 5}}} {:a {:b {:c 3}}})
   (deep-merge {:a {:pred inc}} {:a {:pred {:dude 1}}})
-  (deep-merge {:a {:pred {:dude 1}}} {:a {:pred inc}})
-  )
+  (deep-merge {:a {:pred {:dude 1}}} {:a {:pred inc}}))
 
 (defn paths->head [paths]
   (->> paths
        (partition-by first)
        (map (fn [paths] (if (< 1 (count paths))
-                              [(ffirst paths) (mapv (comp first rest) paths)]
-                              (ffirst paths))))))
+                          [(ffirst paths) (mapv (comp first rest) paths)]
+                          (ffirst paths))))))
 
 (defn head->paths [head]
   (mapcat (fn [k]
@@ -49,8 +49,7 @@
 
 (comment
   (->visible-paths #{[:a] [:b]} [[:a] [:c]])
-  (->visible-paths (complement #{[:a] [:b]}) [[:a] [:c]])
-  )
+  (->visible-paths (complement #{[:a] [:b]}) [[:a] [:c]]))
 
 (comment
   (let [group-headers false]
@@ -65,8 +64,7 @@
                           (keys v))
                      [[k]])))
          (remove nil?)
-         distinct))
-  )
+         distinct)))
 
 (defn normalize-seq-of-map
   ([s] (normalize-seq-of-map {} s))
@@ -226,9 +224,9 @@
   (let [continuous? (every? number? xs)
         dist (if continuous? (histogram xs) (categories xs))]
     (cond->
-        {:continuous? continuous?
-         :col-type (->> xs (remove nil?) (map classified-type) distinct (str/join ", "))
-         :distribution dist}
+     {:continuous? continuous?
+      :col-type (->> xs (remove nil?) (map classified-type) distinct (str/join ", "))
+      :distribution dist}
       (not continuous?) (assoc :category-count (count dist)))))
 
 (defn transpose [rows]
@@ -248,8 +246,7 @@
                                      (range))
                                 (reduce (fn [acc [k v]]
                                           (assoc-in acc k v))
-                                        {})
-                                )))))
+                                        {}))))))
 
 (defn compute-filters-data [{:as data :keys [rows visible-paths]}
                             {:as opts :keys [active-filters]}]
@@ -264,8 +261,7 @@
          data)))
    data active-filters))
 
-(defn compute-autocomplete-data [{:as data :keys [rows visible-paths]}
-                                 {:as opts :keys [active-filters]}]
+(defn compute-autocomplete-data [{:as data :keys [rows visible-paths]} opts]
   (reduce
    (fn [data idx]
      (let [values (into #{} (map #(nth % idx)) rows)]
@@ -279,8 +275,7 @@
                 {:group-headers true}
                 [{:category {:category/a :foo :category/b :foo}}
                  {:category {:category/a :foo :category/b :bar}}
-                 {:category {:category/a :bar :category/b :foo}}]))
-  )
+                 {:category {:category/a :bar :category/b :foo}}])))
 
 (defmulti col-filter-fn
   (fn [[filter-type & _]]
@@ -326,10 +321,116 @@
                     (filter-fn value))))
            (every? identity)))))
 
+(defn find [pred xs]
+  (reduce #(when (pred %2) (reduced %2)) nil xs))
+
+(defn not-blank [s]
+  (when-not (str/blank? s)
+    s))
+
+(def filter-regexp
+  (let [modifier  "(?<modifier>[+-])?"
+        key-qq    "\"(?<keyqq>[^\"]*)(?:\"|$)"
+        key-q     "'(?<keyq>[^']*)(?:'|$)"
+        key       "(?<key>[^\\s:]*)"
+        delimeter "(?<delimeter>:)"
+        value-qq  "\"(?<valueqq>[^\"]*)(?:\"|$)"
+        value-q   "'(?<valueq>[^']*)(?:'|$)"
+        value     "(?<value>[^\\s]*)"]
+    (re-pattern (str modifier
+                     "(?<fullkey>" key-qq "|" key-q "|" key ")"
+                     "(?:" delimeter
+                     "(?<fullvalue>" value-qq "|" value-q "|" value ")"
+                     ")?"))))
+
+(comment
+  (doseq [modifier ["" "+" "-"]
+          key      ["key" "'a key'" "'a:key'" "\"a key\"" "\"a:key\""]
+          delim    [nil ":"]
+          value    (if delim
+                     [nil "value" "a:value" "'a value'" "'a:value'" "\"a value\"" "\"a:value\""]
+                     [nil])
+          :let     [s (str modifier key delim value)]]
+    (prn s #_(match-all filter-regexp s) (parse-query s))))
+
+(defn match-all [re s]
+  (let [m ^java.util.regex.Matcher (re-matcher re s)]
+    (loop [acc (transient [])]
+      (if (.find m)
+        (recur (conj! acc
+                      {:groups (mapv #(.group m %) (range (.groupCount m)))
+                       :named  (persistent!
+                                (reduce-kv
+                                 (fn [acc k i]
+                                   (assoc! acc (keyword k) (.group m ^int i)))
+                                 (transient {})
+                                 (.namedGroups m)))
+                       :start  (.start m)
+                       :end    (.end m)}))
+        (persistent! acc)))))
+
+(defn parse-query [s]
+  (vec
+   (for [match (match-all filter-regexp s)
+         :let [groups    (:named match)
+               start     (:start match)
+               full      (-> match :groups first)
+               modifier  (-> groups :modifier not-blank)
+               key       (or
+                          (-> groups :keyqq not-blank)
+                          (-> groups :keyq not-blank)
+                          (-> groups :key not-blank))
+               fullkey   (-> groups :fullkey not-blank)
+               delimeter (-> groups :delimeter not-blank)
+               value     (or
+                          (-> groups :valueqq not-blank)
+                          (-> groups :valueq not-blank)
+                          (-> groups :value not-blank))
+               fullvalue (-> groups :fullvalue not-blank)]]
+     {:start-idx   start
+      :modifier    modifier
+      :key-quote   (when fullkey
+                     (#{"'" "\""} (subs fullkey 0 1)))
+      :key         key
+      :value-idx   (when delimeter
+                     (+ start
+                        (count (or modifier ""))
+                        (count fullkey)
+                        (count delimeter)))
+      :value-quote (when fullvalue
+                     (#{"'" "\""} (subs fullvalue 0 1)))
+      :value       value
+      :end-idx     (+ start (count full))})))
+
+(defn filter-by-query [{:as data
+                        :keys [rows visible-paths]} query]
+  (let [names      (into {}
+                         (for [[path idx] (map vector visible-paths (range))]
+                            [(str/join "/" (map name path)) idx]))
+        filters    (for [{:keys [modifier key value]} (parse-query query)
+                         :let [idx (names key)]
+                         :when idx]
+                     (cond
+                       (and (= "+" modifier) (nil? value))
+                       #(some? (nth % idx))
+                       
+                       (and (= "-" modifier) (nil? value))
+                       #(nil? (nth % idx))
+                       
+                       (and (= "-" modifier) value)
+                       #(not (str/index-of (str (nth % idx)) value))
+                       
+                       value
+                       #(str/index-of (str (nth % idx)) value)))
+        filters    (remove nil? filters)]
+    (if (seq filters)
+      (update data :rows #(filter (apply every-pred filters) %))
+      data)))
+
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([{:as opts
-     :keys [active-filters stats]
+     :keys [active-filters search-query stats]
      :or {stats false}} data]
    (let [row-filter-fn (row-filter-fn active-filters)]
      (cond-> (cond
@@ -341,7 +442,8 @@
        stats (compute-table-summary opts)
        active-filters (compute-filters-data opts)
        true (compute-autocomplete-data opts)
-       true (update :rows #(filter row-filter-fn %))))))
+       true (update :rows #(filter row-filter-fn %))
+       search-query (filter-by-query search-query)))))
 
 (def table-markup-viewer
   {:render-fn 'nextjournal.clerk-table-stats-sci/table-markup-viewer})
@@ -435,10 +537,9 @@
                    (assoc :nextjournal/value [(viewer/present wrapped-value)])
                    (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error})))))))
 
-#_
-(viewer/reset-viewers! :default
-                       (viewer/add-viewers (viewer/get-default-viewers)
-                                           [viewer]))
+#_(viewer/reset-viewers! :default
+                         (viewer/add-viewers (viewer/get-default-viewers)
+                                             [viewer]))
 
 {::clerk/visibility {:code :hide :result :show}}
 
@@ -456,13 +557,13 @@
          :ductile/id #uuid "774f1174-7ec1-2c44-3f80-15be68f29060"}])
 
      (clerk/example
-       (normalize-seq-of-map seq-of-map)
-       (normalize-seq-of-map {:column-order [:compound/name :entry/datetime]
-                              :hide-columns [:ars/id :ductile/id]} seq-of-map)
-       (normalize-seq-of-map {:column-order [:compound/abbreviation :compound/name :entry/datetime]
-                              :hide-columns [:ars/id :ductile/id]
-                              :computed-columns {:compound/abbreviation (fn [m]
-                                                                          (str/upper-case (str/join (take 3 (:compound/name m)))))}} seq-of-map))
+      (normalize-seq-of-map seq-of-map)
+      (normalize-seq-of-map {:column-order [:compound/name :entry/datetime]
+                             :hide-columns [:ars/id :ductile/id]} seq-of-map)
+      (normalize-seq-of-map {:column-order [:compound/abbreviation :compound/name :entry/datetime]
+                             :hide-columns [:ars/id :ductile/id]
+                             :computed-columns {:compound/abbreviation (fn [m]
+                                                                         (str/upper-case (str/join (take 3 (:compound/name m)))))}} seq-of-map))
 
      (clerk/table seq-of-map)
      (clerk/table {::clerk/render-opts {:column-order [:compound/name :entry/datetime]}} seq-of-map)
@@ -492,22 +593,21 @@
 
 #?(:clj
    (clerk/example
-     #_(normalize-seq-of-map nested-seq-of-map)
-     (normalize-seq-of-map {:group-headers true} nested-seq-of-map)
-     (normalize-seq-of-map {:group-headers [:entry/transport]} nested-seq-of-map)
-     (normalize-seq-of-map {:group-headers true
-                            :column-order [:compound/name
-                                           [:entry/transport [:transport/name :transport/mode]]
-                                           [:exit/transport [:transport/name :transport/mode]]
-                                           :entry/datetime]
-                            :hide-columns [:ars/id :ductile/id]} nested-seq-of-map)
+    #_(normalize-seq-of-map nested-seq-of-map)
+    (normalize-seq-of-map {:group-headers true} nested-seq-of-map)
+    (normalize-seq-of-map {:group-headers [:entry/transport]} nested-seq-of-map)
+    (normalize-seq-of-map {:group-headers true
+                           :column-order [:compound/name
+                                          [:entry/transport [:transport/name :transport/mode]]
+                                          [:exit/transport [:transport/name :transport/mode]]
+                                          :entry/datetime]
+                           :hide-columns [:ars/id :ductile/id]} nested-seq-of-map)
 
-     (clerk/table {::clerk/render-opts {:group-headers true}} nested-seq-of-map)
-     (clerk/table {::clerk/render-opts {:group-headers [:entry/transport]}} nested-seq-of-map)
-     (clerk/table {::clerk/render-opts {:group-headers true
-                                        :column-order [:compound/name
-                                                       [:entry/transport [:transport/name :transport/mode]]
-                                                       [:exit/transport [:transport/name :transport/mode]]
-                                                       :entry/datetime]
-                                        :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)
-     ))
+    (clerk/table {::clerk/render-opts {:group-headers true}} nested-seq-of-map)
+    (clerk/table {::clerk/render-opts {:group-headers [:entry/transport]}} nested-seq-of-map)
+    (clerk/table {::clerk/render-opts {:group-headers true
+                                       :column-order [:compound/name
+                                                      [:entry/transport [:transport/name :transport/mode]]
+                                                      [:exit/transport [:transport/name :transport/mode]]
+                                                      :entry/datetime]
+                                       :hide-columns [:ars/id :ductile/id]}} nested-seq-of-map)))
