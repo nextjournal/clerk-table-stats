@@ -2,11 +2,11 @@
 ^{:nextjournal.clerk/visibility :hide-ns}
 (ns nextjournal.clerk-table-stats
   (:refer-clojure :exclude [find])
-  (:require #?(:clj [nextjournal.clerk :as clerk]
-               :cljs [nextjournal.clerk :as-alias clerk])
-            [nextjournal.clerk.viewer :as viewer]
-            [clojure.set :as set]
-            [clojure.string :as str]))
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
+            [nextjournal.clerk #?(:clj :as :cljs :as-alias) clerk]
+            [nextjournal.clerk-table-stats.render :as-alias render]
+            [nextjournal.clerk.viewer :as viewer]))
 
 (defn deep-merge
   ([])
@@ -446,18 +446,19 @@
        search-query (filter-by-query search-query)))))
 
 (def table-markup-viewer
-  {:render-fn 'nextjournal.clerk-table-stats-sci/table-markup-viewer})
+  {:require-cljs true
+   :render-fn `render/table-markup-viewer})
 
 (def table-head-viewer
   {:require-cljs true
-   :render-fn 'nextjournal.clerk-table-stats-sci/table-head-viewer})
+   :render-fn `render/table-head-viewer})
 
 (def table-body-viewer
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
   {:require-cljs true
-   :render-fn 'nextjournal.clerk-table-stats-sci/table-row-viewer})
+   :render-fn `render/table-row-viewer})
 
 (defn tabular? [xs]
   (and (seqable? xs)

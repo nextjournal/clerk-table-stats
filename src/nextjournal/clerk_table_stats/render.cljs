@@ -1,4 +1,4 @@
-(ns nextjournal.clerk-table-stats-sci
+(ns nextjournal.clerk-table-stats.render
   (:require ["@codemirror/language" :refer [HighlightStyle syntaxHighlighting LanguageDescription]]
             ["@codemirror/state" :refer [Compartment EditorState RangeSet RangeSetBuilder Text]]
             ["@codemirror/view" :refer [Decoration EditorView keymap ViewPlugin]]
@@ -7,8 +7,8 @@
             ["react-dom" :as react-dom]
             [reagent.core :as r]
             [nextjournal.clerk.render.hooks :as hooks]
-            [nextjournal.clerk.viewer]
-            [nextjournal.clerk.render]))
+            [nextjournal.clerk.viewer :as viewer]
+            [nextjournal.clerk.render :as render]))
 
 (defn table-col-bars [{:keys [col-type category-count distribution]} {:keys [table-state idx]}]
   (r/with-let [!selected-bar (r/atom nil)]
@@ -449,7 +449,7 @@
 
 (defn table-head-viewer
   [header-row {:as opts :keys [table-state]}]
-  (let [cells* (nextjournal.clerk.viewer/desc->values header-row)
+  (let [cells* (viewer/desc->values header-row)
         cells (mapcat #(if (vector? %)
                          (let [fst (first %)
                                vs (second %)]
@@ -553,7 +553,7 @@
                      "print:py-[2px]"
                      (when (and (ifn? number-col?) (number-col? idx))
                        "text-right")]}
-            (nextjournal.clerk.render/inspect-presented opts cell)]))
+            (render/inspect-presented opts cell)]))
         row))
 
 (defn get-theme []
@@ -748,7 +748,7 @@
                !state            (atom nil)
                !view             (atom nil)
                !suggestions      (r/atom nil)
-               cells             (nextjournal.clerk.viewer/desc->values (first head+body))
+               cells             (viewer/desc->values (first head+body))
                cells             (mapcat #(if (keyword? %)
                                             [(name %)]
                                             (for [sub (second %)]
@@ -835,10 +835,10 @@
           js/document.body))])))
 
 (defn table-markup-viewer [head+body {:as opts :keys [sync-var]}]
-  (reagent.core/with-let [table-state (if sync-var
-                                        (deref sync-var)
-                                        #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
-                                           :cljs nil))]
+  (r/with-let [table-state (if sync-var
+                             (deref sync-var)
+                             #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
+                                :cljs nil))]
     [:div
      [table-search head+body table-state opts]
      [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
@@ -846,17 +846,16 @@
 
       (into
        [:table.w-full]
-       (nextjournal.clerk.render/inspect-children (assoc opts :table-state table-state))
-        ;; debug atom+head+body #_
+       (render/inspect-children (assoc opts :table-state table-state))
+       ;; debug atom+head+body #_
        head+body)]]))
 
 (comment
-  ;; add :jvm-opts ["-Dclerk.render_repl={}"
-  ;; cider-connect, use port 1339
-  ;; Switch buffer to clojure-mode
+  ;; cider-connect-cljs, use port 1339, use `nbb` for type
   ;; sesman-link-with-buffer, select sci repl
-  (nextjournal.clerk.render/re-render)
+  (render/re-render)
   (doseq [[k var] (ns-publics *ns*)]
     (add-watch var (keyword (str k))
                (fn [_ _ _ _]
-                 (nextjournal.clerk.render/re-render)))))
+                 (render/re-render)))))
+
