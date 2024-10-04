@@ -1,4 +1,5 @@
-{:deps {io.github.nextjournal/clerk {:git/sha "2f6ef0d041126f54478ce1cba3a961916fb3c99a"}}
+{:deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        io.github.nextjournal/clerk {:git/sha "80b3e0832d08b75e13e3b862bd46660cb1c66d5c"}}
  :aliases
  {:dev {:extra-paths ["notebooks" "dev"]
         :extra-deps {com.github.seancorfield/next.jdbc {:mvn/version "1.3.925"}
