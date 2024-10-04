@@ -834,10 +834,10 @@
                 label])]])
           js/document.body))])))
 
-(defn table-markup-viewer [head+body {:as opts :keys [sync-var]}]
-  (r/with-let [table-state (if sync-var
-                             (deref sync-var)
-                             #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
+(defn table-markup-viewer [head+body {:as opts :keys [!sync-state]}]
+  (r/with-let [table-state (if !sync-state
+                             !sync-state
+                             #?(:clj (throw (js/Error. (str "no sync var: " !sync-state)))
                                 :cljs nil))]
     [:div
      [table-search head+body table-state opts]
