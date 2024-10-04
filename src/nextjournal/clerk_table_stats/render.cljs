@@ -836,7 +836,7 @@
 
 (defn table-markup-viewer [head+body {:as opts :keys [!sync-state]}]
   (r/with-let [table-state (if !sync-state
-                             !sync-state
+                             (r/cursor !sync-state [(:id opts)])
                              #?(:clj (throw (js/Error. (str "no sync var: " !sync-state)))
                                 :cljs nil))]
     [:div
