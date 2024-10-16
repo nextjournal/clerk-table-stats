@@ -835,10 +835,7 @@
           js/document.body))])))
 
 (defn table-markup-viewer [head+body {:as opts :keys [sync-var]}]
-  (r/with-let [table-state (if sync-var
-                             (deref sync-var)
-                             #?(:clj (throw (js/Error. (str "no sync var: " sync-var)))
-                                :cljs nil))]
+  (r/with-let [table-state (when sync-var (deref sync-var))]
     [:div
      [table-search head+body table-state opts]
      [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
