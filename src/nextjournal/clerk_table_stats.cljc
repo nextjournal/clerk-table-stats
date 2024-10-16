@@ -343,91 +343,93 @@
                      "(?<fullvalue>" value-qq "|" value-q "|" value ")"
                      ")?"))))
 
-#?(:clj
-    (do
-     (defn match-all [re s]
-       (let [m ^java.util.regex.Matcher (re-matcher re s)]
-         (loop [acc (transient [])]
-           (if (.find m)
-             (recur (conj! acc
-                           {:groups (mapv #(.group m %) (range (.groupCount m)))
-                            :named  (persistent!
-                                     (reduce-kv
-                                      (fn [acc k i]
-                                        (assoc! acc (keyword k) (.group m ^int i)))
-                                      (transient {})
-                                      (.namedGroups m)))
-                            :start  (.start m)
-                            :end    (.end m)}))
-             (persistent! acc)))))
+(defn match-all [re s]
+  #? (:clj (let [m ^java.util.regex.Matcher (re-matcher re s)]
+             (loop [acc (transient [])]
+               (if (.find m)
+                 (recur (conj! acc
+                               {:groups (mapv #(.group m %) (range (.groupCount m)))
+                                :named  (persistent!
+                                         (reduce-kv
+                                          (fn [acc k i]
+                                            (assoc! acc (keyword k) (.group m ^int i)))
+                                          (transient {})
+                                          (.namedGroups m)))
+                                :start  (.start m)
+                                :end    (.end m)}))
+                 (persistent! acc))))
+      :cljs (.matchAll s re)))
 
-     (defn parse-query [s]
-       (vec
-        (for [match (match-all filter-regexp s)
-              :let [groups    (:named match)
-                    start     (:start match)
-                    full      (-> match :groups first)
-                    modifier  (-> groups :modifier not-blank)
-                    key       (or
-                               (-> groups :keyqq not-blank)
-                               (-> groups :keyq not-blank)
-                               (-> groups :key not-blank))
-                    fullkey   (-> groups :fullkey not-blank)
-                    delimeter (-> groups :delimeter not-blank)
-                    value     (or
-                               (-> groups :valueqq not-blank)
-                               (-> groups :valueq not-blank)
-                               (-> groups :value not-blank))
-                    fullvalue (-> groups :fullvalue not-blank)]]
-          {:start-idx   start
-           :modifier    modifier
-           :key-quote   (when fullkey
-                          (#{"'" "\""} (subs fullkey 0 1)))
-           :key         key
-           :value-idx   (when delimeter
-                          (+ start
-                             (count (or modifier ""))
-                             (count fullkey)
-                             (count delimeter)))
-           :value-quote (when fullvalue
-                          (#{"'" "\""} (subs fullvalue 0 1)))
-           :value       value
-           :end-idx     (+ start (count full))})))
+(defn parse-query [s]
+  (vec
+   (for [match (match-all filter-regexp s)
+         :let [groups    #?(:clj (:named match) :cljs (.-groups match))
+               start     #?(:clj (:start match) :cljs (.-index match))
+               full      #?(:clj (-> match :groups first) :cljs (aget match 0))
+               modifier  #?(:clj (-> groups :modifier not-blank) :cljs (-> groups .-modifier not-blank))
+               key       #?(:clj (or
+                                  (-> groups :keyqq not-blank)
+                                  (-> groups :keyq not-blank)
+                                  (-> groups :key not-blank))
+                            :cljs (-> groups .-key not-blank))
+               fullkey   #?(:clj (-> groups :fullkey not-blank) :cljs nil);;TODO
+               delimeter #?(:clj (-> groups :delimeter not-blank) :cljs (-> groups .-fullkey not-blank))
+               value     #?(:clj (or
+                                  (-> groups :valueqq not-blank)
+                                  (-> groups :valueq not-blank)
+                                  (-> groups :value not-blank))
+                            :cljs (-> groups .-value not-blank))
+               fullvalue #?(:clj (-> groups :fullvalue not-blank) :cljs nil) ;;TODO
+               ]]
+     {:start-idx   start
+      :modifier    modifier
+      :key-quote   (when fullkey
+                     (#{"'" "\""} (subs fullkey 0 1)))
+      :key         key
+      :value-idx   (when delimeter
+                     (+ start
+                        (count (or modifier ""))
+                        (count fullkey)
+                        (count delimeter)))
+      :value-quote (when fullvalue
+                     (#{"'" "\""} (subs fullvalue 0 1)))
+      :value       value
+      :end-idx     (+ start (count full))})))
 
-     (comment
-       (doseq [modifier ["" "+" "-"]
-               key      ["key" "'a key'" "'a:key'" "\"a key\"" "\"a:key\""]
-               delim    [nil ":"]
-               value    (if delim
-                          [nil "value" "a:value" "'a value'" "'a:value'" "\"a value\"" "\"a:value\""]
-                          [nil])
-               :let     [s (str modifier key delim value)]]
-         (prn s #_(match-all filter-regexp s) (parse-query s))))
+(comment
+  (doseq [modifier ["" "+" "-"]
+          key      ["key" "'a key'" "'a:key'" "\"a key\"" "\"a:key\""]
+          delim    [nil ":"]
+          value    (if delim
+                     [nil "value" "a:value" "'a value'" "'a:value'" "\"a value\"" "\"a:value\""]
+                     [nil])
+          :let     [s (str modifier key delim value)]]
+    (prn s #_(match-all filter-regexp s) (parse-query s))))
 
-     (defn filter-by-query [{:as data
-                             :keys [rows visible-paths]} query]
-       (let [names      (into {}
-                              (for [[path idx] (map vector visible-paths (range))]
-                                [(str/join "/" (map name path)) idx]))
-             filters    (for [{:keys [modifier key value]} (parse-query query)
-                              :let [idx (names key)]
-                              :when idx]
-                          (cond
-                            (and (= "+" modifier) (nil? value))
-                            #(some? (nth % idx))
+(defn filter-by-query [{:as data
+                        :keys [rows visible-paths]} query]
+  (let [names      (into {}
+                         (for [[path idx] (map vector visible-paths (range))]
+                           [(str/join "/" (map name path)) idx]))
+        filters    (for [{:keys [modifier key value]} (parse-query query)
+                         :let [idx (names key)]
+                         :when idx]
+                     (cond
+                       (and (= "+" modifier) (nil? value))
+                       #(some? (nth % idx))
 
-                            (and (= "-" modifier) (nil? value))
-                            #(nil? (nth % idx))
+                       (and (= "-" modifier) (nil? value))
+                       #(nil? (nth % idx))
 
-                            (and (= "-" modifier) value)
-                            #(not (str/index-of (str (nth % idx)) value))
+                       (and (= "-" modifier) value)
+                       #(not (str/index-of (str (nth % idx)) value))
 
-                            value
-                            #(str/index-of (str (nth % idx)) value)))
-             filters    (remove nil? filters)]
-         (if (seq filters)
-           (update data :rows #(filter (apply every-pred filters) %))
-           data)))))
+                       value
+                       #(str/index-of (str (nth % idx)) value)))
+        filters    (remove nil? filters)]
+    (if (seq filters)
+      (update data :rows #(filter (apply every-pred filters) %))
+      data)))
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
