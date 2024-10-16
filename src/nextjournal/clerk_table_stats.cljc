@@ -289,12 +289,12 @@
 
 (defmethod col-filter-fn :regexp [[_ s]]
   (when (and (not (nil? s)) (not= "" s))
-    (try
-      (let [re (java.util.regex.Pattern/compile s)]
-        (fn [value]
-          (re-find re (str value))))
-      (catch java.util.regex.PatternSyntaxException e
-        #_(println (.getMessage e))))))
+    (when-let [re #?(:clj (try (java.util.regex.Pattern/compile s)
+                               (catch java.util.regex.PatternSyntaxException e
+                                 (println (.getMessage e))))
+                     :cljs (js/RegExp. s))]
+      (fn [value]
+        (re-find re (str value))))))
 
 (defmethod col-filter-fn :ranges [[_ ranges]]
   (when-not (empty? ranges)
