@@ -438,6 +438,7 @@
                (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
                (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
                (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
+               (empty? data) {:rows []}
                :else nil)
        stats (compute-table-summary opts)
        active-filters (compute-filters-data opts)
@@ -514,12 +515,13 @@
                                                            :autocomplete-data autocomplete-data
                                                            :state state})
                    (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)
-                   (assoc :nextjournal/value (cond->> []
-                                               (seq rows) (cons (viewer/with-viewer table-body-viewer (merge (-> applied-viewer
-                                                                                                                 (select-keys [:page-size])
-                                                                                                                 (set/rename-keys {:page-size :nextjournal/page-size}))
-                                                                                                             (select-keys wrapped-value [:nextjournal/page-size]))
-                                                                  (map (partial viewer/with-viewer table-row-viewer) rows)))
+                   (assoc :nextjournal/value (cond->> [(viewer/with-viewer table-body-viewer (merge (-> applied-viewer
+                                                                                                        (select-keys [:page-size])
+                                                                                                        (set/rename-keys {:page-size :nextjournal/page-size}))
+                                                                                                    (select-keys wrapped-value [:nextjournal/page-size]))
+                                                         (if (seq rows)
+                                                           (map (partial viewer/with-viewer table-row-viewer) rows)
+                                                           [(viewer/html [:span.italic "this table has no rows"])]))]
                                                head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
                (-> wrapped-value
                    viewer/mark-presented
