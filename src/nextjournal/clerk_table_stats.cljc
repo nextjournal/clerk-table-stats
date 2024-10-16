@@ -451,19 +451,16 @@
                        :cljs identity)))))
 
 (def table-markup-viewer
-  {:require-cljs true
-   :render-fn `render/render-table-markup})
+  {:render-fn `render/render-table-markup})
 
 (def table-head-viewer
-  {:require-cljs true
-   :render-fn `render/render-table-head})
+  {:render-fn `render/render-table-head})
 
 (def table-body-viewer
   {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
 
 (def table-row-viewer
-  {:require-cljs true
-   :render-fn `render/render-table-row})
+  {:render-fn `render/render-table-row})
 
 (defn tabular? [xs]
   (and (seqable? xs)
