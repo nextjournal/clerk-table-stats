@@ -447,7 +447,7 @@
                [icon-checkmark])]
             name])]]])))
 
-(defn table-head-viewer
+(defn render-table-head
   [header-row {:as opts :keys [table-state]}]
   (let [cells* (viewer/desc->values header-row)
         cells (mapcat #(if (vector? %)
@@ -538,7 +538,7 @@
                         :idx idx}])])])
               sub-headers)))]))
 
-(defn table-row-viewer
+(defn render-table-row
   [row {:as opts :keys [path number-col?]}]
   (into [:tr.print:border-b-gray-500.hover:bg-slate-200.print:hover:bg-transparent.group
          {:class (str "print:border-b-[1px] "
@@ -834,7 +834,7 @@
                 label])]])
           js/document.body))])))
 
-(defn table-markup-viewer [head+body {:as opts :keys [sync-var]}]
+(defn render-table-markup [head+body {:as opts :keys [sync-var]}]
   (r/with-let [table-state (when sync-var (deref sync-var))]
     [:div
      [table-search head+body table-state opts]
