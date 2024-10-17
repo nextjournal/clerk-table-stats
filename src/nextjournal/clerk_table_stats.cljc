@@ -493,10 +493,7 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn transform-fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           ;; TODO: drop this `(str (:id wrapped-value) "-result")`
-           ;; processing once we unify the `:id` in clerk between
-           ;; render-opts and transform-fn
-           (let [table-state (get-in @(:!sync-state wrapped-value) [(str (:id wrapped-value) "-result")])]
+           (let [table-state @(:!sync-state wrapped-value)]
 
              (if-let [{:keys [head rows summary filter-data autocomplete-data state]}
                       (normalize-table-data (merge render-opts table-state)

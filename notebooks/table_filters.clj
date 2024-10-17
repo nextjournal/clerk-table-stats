@@ -61,7 +61,7 @@
 ^{:nextjournal.clerk/visibility {:result :show}}
 @viewer/!sync-state
 
-#_(reset! viewer/!sync-state {})
+#_(reset! viewer/!sync-state {:active-filters {}})
 
 ^{:nextjournal.clerk/visibility {:result :show}}
 (clerk/with-viewer clerk-table-stats/viewer
