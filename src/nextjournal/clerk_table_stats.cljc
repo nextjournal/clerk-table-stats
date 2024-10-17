@@ -68,7 +68,7 @@
 
 (defn normalize-seq-of-map
   ([s] (normalize-seq-of-map {} s))
-  ([{:keys [column-order computed-columns hide-columns select-columns group-headers schema]} s]
+  ([{:keys [column-order transform-columns computed-columns hide-columns select-columns group-headers schema]} s]
    (let [paths (if schema
                  (head->paths schema)
                  (->> s
@@ -98,10 +98,17 @@
       :hidden-paths hidden-paths
       :head (paths->head visible-paths)
       :visible-paths visible-paths
-      :rows (map (fn [m] (map (fn [path]
-                                (if (contains? computed-paths path)
-                                  ((get-in computed-columns path) m)
-                                  (get-in m path viewer/missing-pred))) visible-paths)) s)})))
+      :rows (cond->> s
+              (seq computed-columns) (map (fn [m]
+                                            (into m (map (fn [[k compute-fn]]
+                                                           [k (compute-fn m)]) computed-columns))))
+              true (map (fn [m]
+                          (with-meta
+                            (map (fn [path]
+                                   (if-let [transform-fn (get transform-columns path)]
+                                     (transform-fn m)
+                                     (get-in m path viewer/missing-pred))) visible-paths)
+                            {:data m}))))})))
 
 (defn normalize-map-of-seq
   ([s] (normalize-map-of-seq {} s))
