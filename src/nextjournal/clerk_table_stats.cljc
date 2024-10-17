@@ -296,12 +296,12 @@
 
 (defmethod col-filter-fn :regexp [[_ s]]
   (when (and (not (nil? s)) (not= "" s))
-    (try
-      (let [re (java.util.regex.Pattern/compile s)]
-        (fn [value]
-          (re-find re (str value))))
-      (catch java.util.regex.PatternSyntaxException e
-        #_(println (.getMessage e))))))
+    (when-let [re #?(:clj (try (java.util.regex.Pattern/compile s)
+                               (catch java.util.regex.PatternSyntaxException e
+                                 (println (.getMessage e))))
+                     :cljs (js/RegExp. s))]
+      (fn [value]
+        (re-find re (str value))))))
 
 (defmethod col-filter-fn :ranges [[_ ranges]]
   (when-not (empty? ranges)
@@ -350,50 +350,44 @@
                      "(?<fullvalue>" value-qq "|" value-q "|" value ")"
                      ")?"))))
 
-(comment
-  (doseq [modifier ["" "+" "-"]
-          key      ["key" "'a key'" "'a:key'" "\"a key\"" "\"a:key\""]
-          delim    [nil ":"]
-          value    (if delim
-                     [nil "value" "a:value" "'a value'" "'a:value'" "\"a value\"" "\"a:value\""]
-                     [nil])
-          :let     [s (str modifier key delim value)]]
-    (prn s #_(match-all filter-regexp s) (parse-query s))))
-
 (defn match-all [re s]
-  (let [m ^java.util.regex.Matcher (re-matcher re s)]
-    (loop [acc (transient [])]
-      (if (.find m)
-        (recur (conj! acc
-                      {:groups (mapv #(.group m %) (range (.groupCount m)))
-                       :named  (persistent!
-                                (reduce-kv
-                                 (fn [acc k i]
-                                   (assoc! acc (keyword k) (.group m ^int i)))
-                                 (transient {})
-                                 (.namedGroups m)))
-                       :start  (.start m)
-                       :end    (.end m)}))
-        (persistent! acc)))))
+  #? (:clj (let [m ^java.util.regex.Matcher (re-matcher re s)]
+             (loop [acc (transient [])]
+               (if (.find m)
+                 (recur (conj! acc
+                               {:groups (mapv #(.group m %) (range (.groupCount m)))
+                                :named  (persistent!
+                                         (reduce-kv
+                                          (fn [acc k i]
+                                            (assoc! acc (keyword k) (.group m ^int i)))
+                                          (transient {})
+                                          (.namedGroups m)))
+                                :start  (.start m)
+                                :end    (.end m)}))
+                 (persistent! acc))))
+      :cljs (.matchAll s re)))
 
 (defn parse-query [s]
   (vec
    (for [match (match-all filter-regexp s)
-         :let [groups    (:named match)
-               start     (:start match)
-               full      (-> match :groups first)
-               modifier  (-> groups :modifier not-blank)
-               key       (or
-                          (-> groups :keyqq not-blank)
-                          (-> groups :keyq not-blank)
-                          (-> groups :key not-blank))
-               fullkey   (-> groups :fullkey not-blank)
-               delimeter (-> groups :delimeter not-blank)
-               value     (or
-                          (-> groups :valueqq not-blank)
-                          (-> groups :valueq not-blank)
-                          (-> groups :value not-blank))
-               fullvalue (-> groups :fullvalue not-blank)]]
+         :let [groups    #?(:clj (:named match) :cljs (.-groups match))
+               start     #?(:clj (:start match) :cljs (.-index match))
+               full      #?(:clj (-> match :groups first) :cljs (aget match 0))
+               modifier  #?(:clj (-> groups :modifier not-blank) :cljs (-> groups .-modifier not-blank))
+               key       #?(:clj (or
+                                  (-> groups :keyqq not-blank)
+                                  (-> groups :keyq not-blank)
+                                  (-> groups :key not-blank))
+                            :cljs (-> groups .-key not-blank))
+               fullkey   #?(:clj (-> groups :fullkey not-blank) :cljs nil);;TODO
+               delimeter #?(:clj (-> groups :delimeter not-blank) :cljs (-> groups .-fullkey not-blank))
+               value     #?(:clj (or
+                                  (-> groups :valueqq not-blank)
+                                  (-> groups :valueq not-blank)
+                                  (-> groups :value not-blank))
+                            :cljs (-> groups .-value not-blank))
+               fullvalue #?(:clj (-> groups :fullvalue not-blank) :cljs nil) ;;TODO
+               ]]
      {:start-idx   start
       :modifier    modifier
       :key-quote   (when fullkey
@@ -409,24 +403,34 @@
       :value       value
       :end-idx     (+ start (count full))})))
 
+(comment
+  (doseq [modifier ["" "+" "-"]
+          key      ["key" "'a key'" "'a:key'" "\"a key\"" "\"a:key\""]
+          delim    [nil ":"]
+          value    (if delim
+                     [nil "value" "a:value" "'a value'" "'a:value'" "\"a value\"" "\"a:value\""]
+                     [nil])
+          :let     [s (str modifier key delim value)]]
+    (prn s #_(match-all filter-regexp s) (parse-query s))))
+
 (defn filter-by-query [{:as data
                         :keys [rows visible-paths]} query]
   (let [names      (into {}
                          (for [[path idx] (map vector visible-paths (range))]
-                            [(str/join "/" (map name path)) idx]))
+                           [(str/join "/" (map name path)) idx]))
         filters    (for [{:keys [modifier key value]} (parse-query query)
                          :let [idx (names key)]
                          :when idx]
                      (cond
                        (and (= "+" modifier) (nil? value))
                        #(some? (nth % idx))
-                       
+
                        (and (= "-" modifier) (nil? value))
                        #(nil? (nth % idx))
-                       
+
                        (and (= "-" modifier) value)
                        #(not (str/index-of (str (nth % idx)) value))
-                       
+
                        value
                        #(str/index-of (str (nth % idx)) value)))
         filters    (remove nil? filters)]
@@ -451,22 +455,24 @@
        active-filters (compute-filters-data opts)
        true (compute-autocomplete-data opts)
        true (update :rows #(filter row-filter-fn %))
-       search-query (filter-by-query search-query)))))
+       search-query #?(:clj (filter-by-query search-query)
+                       :cljs identity)))))
 
 (def table-markup-viewer
-  {:require-cljs true
-   :render-fn `render/table-markup-viewer})
+  (assoc viewer/table-markup-viewer
+   :render-fn `render/render-table-markup))
 
 (def table-head-viewer
-  {:require-cljs true
-   :render-fn `render/table-head-viewer})
+  (assoc viewer/table-head-viewer
+   :render-fn `render/render-table-head))
 
 (def table-body-viewer
-  {:render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))})
+  (assoc viewer/table-body-viewer
+   :render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))))
 
 (def table-row-viewer
-  {:require-cljs true
-   :render-fn `render/table-row-viewer})
+  (assoc viewer/table-row-viewer
+   :render-fn `render/render-table-row))
 
 (defn tabular? [xs]
   (and (seqable? xs)
