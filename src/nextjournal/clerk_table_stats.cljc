@@ -493,7 +493,18 @@
   (assoc viewer/table-viewer
          :transform-fn
          (fn transform-fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-           (let [table-state @(:!sync-state wrapped-value)]
+           (let [#?@(:clj [id (or (:id wrapped-value)
+                                  (symbol (str (ns-name *ns*)) (str (gensym))))
+                           var-name (symbol (namespace id) (str (name id) "-table"))])
+                 _ #?(:clj (when-not (resolve var-name)
+                             (when-some [ns' (find-ns (symbol (namespace var-name)))]
+                               (intern ns' (symbol (name var-name)) (doto (atom {:active-filters {}})
+                                                                      (add-watch ::recompute
+                                                                                 (fn [_ _ _ _]
+                                                                                   (nextjournal.clerk/recompute!)))))))
+                      :cljs nil)
+                 table-state #?(:clj @@(resolve var-name)
+                                :cljs nil)]
 
              (if-let [{:keys [head rows summary filter-data autocomplete-data state]}
                       (normalize-table-data (merge render-opts table-state)
@@ -502,6 +513,9 @@
                    (assoc :nextjournal/viewer table-markup-viewer)
                    (update :nextjournal/width #(or % :wide))
                    (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
+                                                           #?@(:clj [:sync-var (viewer/->viewer-eval
+                                                                                (list 'nextjournal.clerk.render/intern-atom!
+                                                                                      (list 'quote var-name) table-state))])
                                                            :number-col? (into #{}
                                                                               (comp (map-indexed vector)
                                                                                     (keep #(when (number? (second %)) (first %))))

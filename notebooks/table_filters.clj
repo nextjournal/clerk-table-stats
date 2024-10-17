@@ -5,7 +5,6 @@
                                   :result :hide}}
   (:require [clojure.math :as math]
             [nextjournal.clerk :as clerk]
-            [nextjournal.clerk.viewer :as viewer]
             [nextjournal.clerk-table-stats :as clerk-table-stats]))
 
 (def cities
@@ -57,11 +56,6 @@
 
 (defonce data
   (mapv row-fn (range 10000)))
-
-^{:nextjournal.clerk/visibility {:result :show}}
-@viewer/!sync-state
-
-#_(reset! viewer/!sync-state {:active-filters {}})
 
 ^{:nextjournal.clerk/visibility {:result :show}}
 (clerk/with-viewer clerk-table-stats/viewer
