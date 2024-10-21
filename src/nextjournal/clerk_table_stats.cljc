@@ -460,19 +460,23 @@
 
 (def table-markup-viewer
   (assoc viewer/table-markup-viewer
-   :render-fn `render/render-table-markup))
+         :require-cljs true
+         :render-fn `render/render-table-markup))
 
 (def table-head-viewer
   (assoc viewer/table-head-viewer
-   :render-fn `render/render-table-head))
+         :require-cljs true
+         :render-fn `render/render-table-head))
 
 (def table-body-viewer
   (assoc viewer/table-body-viewer
-   :render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))))
+         :require-cljs true
+         :render-fn `render/render-table-body))
 
 (def table-row-viewer
   (assoc viewer/table-row-viewer
-   :render-fn `render/render-table-row))
+         :require-cljs true
+         :render-fn `render/render-table-row))
 
 (defn tabular? [xs]
   (and (seqable? xs)
