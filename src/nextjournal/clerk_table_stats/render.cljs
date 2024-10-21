@@ -538,6 +538,11 @@
                         :idx idx}])])])
               sub-headers)))]))
 
+(defn render-table-body  [rows opts]
+  (into [:tbody]
+        (render/inspect-children opts)
+        rows))
+
 (defn render-table-row
   [row {:as opts :keys [path number-col?]}]
   (into [:tr.print:border-b-gray-500.hover:bg-slate-200.print:hover:bg-transparent.group
