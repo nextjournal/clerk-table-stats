@@ -242,8 +242,8 @@
 (defn find-parent [node pred]
   (loop [node node]
     (cond
-      (pred node) node
       (nil? node) nil
+      (pred node) node
       :else (recur (.-parentNode node)))))
 
 (defn child? [node parent]
