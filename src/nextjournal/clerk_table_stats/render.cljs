@@ -240,9 +240,10 @@
 
 (defn find-parent [node pred]
   (loop [node node]
+    (js/console.log node (.-classList node))
     (cond
-      (pred node) node
       (nil? node) nil
+      (pred node) node
       :else (recur (.-parentNode node)))))
 
 (defn child? [node parent]
@@ -300,8 +301,7 @@
       (hooks/use-effect
        (fn []
          (let [container (-> @!button-ref
-                             (find-parent  #(-> % .-classList (.contains "result-viewer")))
-                             (.querySelector ".relative > .overflow-x-auto > div"))
+                             (find-parent #(-> % .-classList (.contains "table-viewer-container"))))
                callback  (fn [event]
                            (reset! !scroll-left (-> event .-currentTarget .-scrollLeft)))]
            (reset! !scroll-left (-> container .-scrollLeft))
@@ -401,6 +401,9 @@
      [table-col-filter-text :regexp opts]
 
      :one-of
+     [table-col-filter-multiselect opts]
+
+     :omni-box
      [table-col-filter-multiselect opts])])
 
 (defn icon-filter []
@@ -447,6 +450,36 @@
                [icon-checkmark])]
             name])]]])))
 
+(defn render-table-head-cell [{:as opts :keys [index col-span row-span title col-key translated-keys sub-header? filters table-state]}]
+  [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.border-slate-300.text-center.whitespace-nowrap.border-b.align-top
+   (cond-> {:class ["print:text-[10px]"
+                    "print:bg-transparent"
+                    "print:px-[5px]"
+                    "print:py-[2px]"
+                    (when (and sub-header? (< 0 index)) "border-l")
+                    (when-not sub-header? "first:border-l-0 ")]
+            :colspan col-span
+            :rowspan row-span}
+     #_#_(and column-layout (column-layout k)) (assoc :style (column-layout k))
+     title (assoc :title title))
+   [:div.flex.flex-col.gap-1
+    [:div.relative.flex.justify-center
+     [:span.px-6 (get translated-keys col-key col-key)]
+     #_(when-not has-subheaders?
+         [filter-button table-state opts header-cell idx])]
+    (when-not col-span
+      [:<>
+       (when-let [filter-type (and filters (get filters col-key))]
+         (js/console.log "filter" filter-type)
+         [table-col-filter {:filter-type (get filters col-key)
+                            :filter-data (get (:filter-data opts) idx)
+                            :table-state table-state
+                            :idx index}])
+       #_(when-let [summary (:summary opts)]
+           [table-col-summary (get-in summary [k])
+            {:table-state table-state
+             :idx idx}])])]])
+
 (defn render-table-head
   [header-row {:as opts :keys [table-state]}]
   (let [cells* (viewer/desc->values header-row)
@@ -480,62 +513,25 @@
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
                    (let [header-cell (:cell cell)
-                         has-subheaders? (vector? header-cell)
                          idx (:idx cell)
                          k (if (vector? header-cell)
                              (first header-cell)
                              header-cell)
                          title (when (or (string? k) (keyword? k) (symbol? k)) k)
                          {:keys [translated-keys column-layout number-col?] :or {translated-keys {}}} opts]
-                     [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b.align-top
-                      (cond-> {:class ["print:text-[10px]"
-                                       "print:bg-transparent"
-                                       "print:px-[5px]"
-                                       "print:py-[2px]"
-                                       (when sub-headers
-                                         "first:border-l-0 ")]}
-                        (and column-layout (column-layout k)) (assoc :style (column-layout k))
-                        (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
-                        (and sub-headers (not (vector? header-cell))) (assoc :row-span 2)
-                        title (assoc :title title))
-                      [:div.flex.flex-col.gap-1
-                       [:div.relative.flex.justify-center
-                        [:span.px-6 (get translated-keys k k)]
-                        (when-not has-subheaders?
-                          [filter-button table-state opts header-cell idx])]
-                       (when-not has-subheaders?
-                         [:<>
-                          (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
-                            [table-col-filter {:filter-type col-filter
-                                               :filter-data (get (:filter-data opts) idx)
-                                               :table-state table-state
-                                               :idx idx}])
-                          (when-let [summary (:summary opts)]
-                            [table-col-summary (get-in summary [k])
-                             {:table-state table-state
-                              :idx idx}])])]])))
+                     (render-table-head-cell (cond-> (merge opts {:index idx
+                                                                  :title title
+                                                                  :col-key k})
+                                               (vector? header-cell) (assoc :col-span (count (first (rest header-cell))))
+                                               (and sub-headers (not (vector? header-cell))) (assoc :row-span 2))))))
            header-cells)
      (when-not (empty? sub-headers)
        (into [:tr.print:border-b-2.print:border-black]
              (map
               (fn [{:keys [cell idx]}]
-                [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b.align-bottom
-                 {:class (if (< 0 idx) "border-l")}
-                 (let [sub-header-key (second cell)
-                       col-filter     (get (:filters opts) cell)]
-                   [:div.flex.flex-col.gap-1
-                    [:div.relative.flex.justify-center
-                     (get (:translated-keys opts {}) sub-header-key sub-header-key)
-                     [filter-button table-state opts cell idx]]
-                    (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
-                      [table-col-filter {:filter-type col-filter
-                                         :filter-data (get (:filter-data opts) idx)
-                                         :table-state table-state
-                                         :idx idx}])
-                    (when-let [summary (:summary opts)]
-                      [table-col-summary (get-in summary cell)
-                       {:table-state table-state
-                        :idx idx}])])])
+                (let [sub-header-key (second cell)
+                      col-filter     (get (:filters opts) cell)]
+                  (render-table-head-cell (merge opts {:index idx :col-key sub-header-key :sub-header? true}))))
               sub-headers)))]))
 
 (defn render-table-row
@@ -835,10 +831,12 @@
           js/document.body))])))
 
 (defn render-table-markup [head+body {:as opts :keys [sync-var]}]
-  (r/with-let [table-state (when sync-var (deref sync-var))]
-    [:div
-     [table-search head+body table-state opts]
-     [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
+  (r/with-let [table-state (if sync-var
+                             (deref sync-var)
+                             (r/atom {}))]
+    [:div.table-viewer
+     #_[table-search head+body table-state opts]
+     [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto.table-viewer-container
       {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
 
       (into

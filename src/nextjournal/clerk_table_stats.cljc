@@ -460,11 +460,11 @@
 
 (def table-markup-viewer
   (assoc viewer/table-markup-viewer
-   :render-fn `render/render-table-markup))
+         :render-fn 'nextjournal.clerk-table-stats.render/render-table-markup))
 
 (def table-head-viewer
   (assoc viewer/table-head-viewer
-   :render-fn `render/render-table-head))
+         :render-fn 'nextjournal.clerk-table-stats.render/render-table-head))
 
 (def table-body-viewer
   (assoc viewer/table-body-viewer
@@ -472,7 +472,7 @@
 
 (def table-row-viewer
   (assoc viewer/table-row-viewer
-   :render-fn `render/render-table-row))
+         :render-fn 'nextjournal.clerk-table-stats.render/render-table-row))
 
 (defn tabular? [xs]
   (and (seqable? xs)
