@@ -1,4 +1,5 @@
 (ns nextjournal.clerk-table-stats.render
+  (:refer-clojure :exclude [find])
   (:require ["@codemirror/language" :refer [HighlightStyle syntaxHighlighting LanguageDescription]]
             ["@codemirror/state" :refer [Compartment EditorState RangeSet RangeSetBuilder Text]]
             ["@codemirror/view" :refer [Decoration EditorView keymap ViewPlugin]]

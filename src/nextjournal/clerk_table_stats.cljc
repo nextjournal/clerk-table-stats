@@ -460,19 +460,24 @@
 
 (def table-markup-viewer
   (assoc viewer/table-markup-viewer
-   :render-fn `render/render-table-markup))
+         ;;FIXME this does not get expanded correctly: :render-fn `render/render-table-markup
+         ;; :render-fn 'nextjournal.clerk-table-stats.render/render-table-markup
+         :render-fn `render/render-table-markup
+         :require-cljs true))
 
 (def table-head-viewer
   (assoc viewer/table-head-viewer
-   :render-fn `render/render-table-head))
+         :render-fn `render/render-table-head
+         :require-cljs true))
 
 (def table-body-viewer
   (assoc viewer/table-body-viewer
-   :render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))))
+         :render-fn '(fn [rows opts] (into [:tbody] (map-indexed (fn [idx row] (nextjournal.clerk.render/inspect-presented (update opts :path conj idx) row))) rows))))
 
 (def table-row-viewer
   (assoc viewer/table-row-viewer
-   :render-fn `render/render-table-row))
+         :render-fn `render/render-table-row
+         :require-cljs true))
 
 (defn tabular? [xs]
   (and (seqable? xs)
