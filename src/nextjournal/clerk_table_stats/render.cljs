@@ -298,7 +298,7 @@
            (js/document.addEventListener "click" on-click)
            #(js/document.removeEventListener "click" on-click))))
       ;; update horizontal scroll position
-      (hooks/use-effect
+      #_(hooks/use-effect
        (fn []
          (let [container (-> @!button-ref
                              (find-parent  #(-> % .-classList (.contains "result-viewer")))
@@ -836,7 +836,7 @@
           js/document.body))])))
 
 (defn render-table-markup [head+body {:as opts :keys [sync-var]}]
-  (r/with-let [table-state (atom {}) #_ (if sync-var (deref sync-var) (atom {}))]
+  (r/with-let [table-state (r/atom {}) #_ (if sync-var (deref sync-var) (atom {}))]
     [:div
      [table-search head+body table-state opts]
      [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
