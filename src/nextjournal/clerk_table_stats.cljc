@@ -438,6 +438,30 @@
       (update data :rows #(filter (apply every-pred filters) %))
       data)))
 
+(do
+
+  (defn guess-filter [i rows]
+    (set (map (fn [row] (type (nth row i))) rows)))
+
+  (defn guess-active-filters [{:as opts :keys [active-filters]} {:as data :keys [rows paths]}]
+    (assoc data
+           :active-filters
+           (map-indexed (fn [i path]
+                          [i (get active-filters path (guess-filter i rows))])
+                        paths)))
+  (guess-active-filters {:active-filters {[:foo] :number
+                                          [:baz :quux] :number}}
+                        {:schema '(:foo :bar [:baz [:quux :xyzzy]]),
+                         :paths '([:foo] [:bar] [:baz :quux] [:baz :xyzzy]),
+                         :hidden-paths #{},
+                         :head '(:foo :bar [:baz [:quux :xyzzy]]),
+                         :visible-paths '([:foo] [:bar] [:baz :quux] [:baz :xyzzy]),
+                         :rows '((1 2 23 42) (3 4 23 42) (3 4 23 42) (3 4 :nextjournal/missing :nextjournal/missing)),
+                         :autocomplete-data {0 {:values #{1 3}},
+                                             1 {:values #{4 2}},
+                                             2 {:values #{23 :nextjournal/missing}},
+                                             3 {:values #{:nextjournal/missing 42}}}}))
+
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([{:as opts
@@ -452,7 +476,8 @@
                (empty? data) {:rows []}
                :else nil)
        stats (compute-table-summary opts)
-       active-filters (compute-filters-data opts)
+       false (guess-active-filters opts)
+       true (compute-filters-data opts)
        true (compute-autocomplete-data opts)
        true (update :rows #(filter row-filter-fn %))
        search-query #?(:clj (filter-by-query search-query)
@@ -619,6 +644,7 @@
     :entry/transport {:transport/mode :mode/truck
                       :transport/name "Kempers"}
     :exit/transport {:transport/mode :mode/truck}}])
+
 
 #?(:clj
    (clerk/example

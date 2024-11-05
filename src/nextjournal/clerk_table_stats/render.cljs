@@ -836,9 +836,9 @@
           js/document.body))])))
 
 (defn render-table-markup [head+body {:as opts :keys [sync-var]}]
-  (r/with-let [table-state (r/atom {}) #_ (if sync-var (deref sync-var) (atom {}))]
+  (r/with-let [table-state (if sync-var (deref sync-var) (r/atom {}))]
     [:div
-     [table-search head+body table-state opts]
+     #_[table-search head+body table-state opts]
      [:div.bg-white.rounded.border.border-slate-300.shadow-sm.font-sans.text-sm.not-prose.overflow-x-auto
       {:class "print:overflow-none print:text-[10px] print:shadow-none print:rounded-none print:border-none"}
       (into
