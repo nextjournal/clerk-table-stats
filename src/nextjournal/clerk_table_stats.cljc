@@ -457,6 +457,16 @@
                                  [i (get active-filters path (guess-filter i rows))])
                                paths))))
 
+(defn update-when [m k f & args]
+  (if (contains? m k)
+    (apply update m k f args)
+    m))
+
+(defn normalize-seq-to-vec [data]
+  (-> data
+      (update :rows vec)
+      (update-when :head vec)))
+
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
   ([{:as opts
@@ -464,7 +474,7 @@
      :or {stats false}} data]
    (let [row-filter-fn (row-filter-fn active-filters)]
      (cond-> (cond
-               (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (viewer/normalize-seq-to-vec data)
+               (and (map? data) (-> data (viewer/get-safe :rows) sequential?)) (normalize-seq-to-vec data)
                (and (map? data) (sequential? (first (vals data)))) (normalize-map-of-seq opts data)
                (and (sequential? data) (map? (first data))) (normalize-seq-of-map opts data)
                (and (sequential? data) (sequential? (first data))) (viewer/normalize-seq-of-seq data)
