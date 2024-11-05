@@ -538,51 +538,34 @@
   (-> viewer/table-viewer
       (assoc :transform-fn
              (fn transform-fn [{:as wrapped-value :nextjournal/keys [applied-viewer render-opts]}]
-               (let [#?@(:clj [id (or (:id wrapped-value)
-                                      (symbol (str (ns-name *ns*)) (str (gensym))))
-                               var-name (symbol (namespace id) (str (name id) "-table"))
-                               _ (when-not (resolve var-name)
-                                   (when-some [ns' (find-ns (symbol (namespace var-name)))]
-                                     (intern ns' (symbol (name var-name)) (doto (atom {:active-filters {}})
-                                                                            (add-watch ::recompute
-                                                                                       (fn [_ _ _ _]
-                                                                                         (nextjournal.clerk/recompute!)))))))])
-                     table-state #?(:clj @@(resolve var-name)
-                                    :cljs nil)]
-
-                 (if-let [{:keys [head rows summary filter-data autocomplete-data state]}
-                          (normalize-table-data (merge render-opts table-state)
-                                                (viewer/->value wrapped-value))]
-                   (-> wrapped-value
-                       (assoc :nextjournal/viewer table-markup-viewer)
-                       (update :nextjournal/width #(or % :wide))
-                       (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
-                                                               #?@(:clj [:sync-var (viewer/->viewer-eval
-                                                                                    (list 'nextjournal.clerk.render/intern-atom!
-                                                                                          (list 'quote var-name) table-state))])
-                                                               :number-col? (into #{}
-                                                                                  (comp (map-indexed vector)
-                                                                                        (keep #(when (number? (second %)) (first %))))
-                                                                                  (not-empty (first rows)))
-                                                               :summary summary
-                                                               :initial-table-state table-state
-                                                               :filter-data filter-data
-                                                               :autocomplete-data autocomplete-data
-                                                               :state state})
-                       (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)
-                       (assoc :nextjournal/value (cond->> [(viewer/with-viewer table-body-viewer (merge (-> applied-viewer
-                                                                                                            (select-keys [:page-size])
-                                                                                                            (set/rename-keys {:page-size :nextjournal/page-size}))
-                                                                                                        (select-keys wrapped-value [:nextjournal/page-size]))
-                                                             (if (seq rows)
-                                                               (map (partial viewer/with-viewer table-row-viewer) rows)
-                                                               [(viewer/html [:span.italic "this table has no rows"])]))]
-                                                   head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
-                   (-> wrapped-value
-                       viewer/mark-presented
-                       (assoc :nextjournal/width :wide)
-                       (assoc :nextjournal/value [(viewer/present wrapped-value)])
-                       (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error}))))))
+               (if-let [{:keys [head rows summary active-filters filter-data autocomplete-data]}
+                        (normalize-table-data render-opts (viewer/->value wrapped-value))]
+                 (-> wrapped-value
+                     (assoc :nextjournal/viewer table-markup-viewer)
+                     (update :nextjournal/width #(or % :wide))
+                     (update :nextjournal/render-opts merge {:num-cols (count (or head (first rows)))
+                                                             :number-col? (into #{}
+                                                                                (comp (map-indexed vector)
+                                                                                      (keep #(when (number? (second %)) (first %))))
+                                                                                (not-empty (first rows)))
+                                                             :summary summary
+                                                             :active-filters active-filters
+                                                             :filter-data filter-data
+                                                             :autocomplete-data autocomplete-data})
+                     (update :nextjournal/render-opts dissoc :computed-columns :pre-process-stats)
+                     (assoc :nextjournal/value (cond->> [(viewer/with-viewer table-body-viewer (merge (-> applied-viewer
+                                                                                                          (select-keys [:page-size])
+                                                                                                          (set/rename-keys {:page-size :nextjournal/page-size}))
+                                                                                                      (select-keys wrapped-value [:nextjournal/page-size]))
+                                                           (if (seq rows)
+                                                             (map (partial viewer/with-viewer table-row-viewer) rows)
+                                                             [(viewer/html [:span.italic "this table has no rows"])]))]
+                                                 head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
+                 (-> wrapped-value
+                     viewer/mark-presented
+                     (assoc :nextjournal/width :wide)
+                     (assoc :nextjournal/value [(viewer/present wrapped-value)])
+                     (assoc :nextjournal/viewer {:render-fn 'nextjournal.clerk.render/render-table-error})))))
       (update :add-viewers (fn [v] (concat (filter (fn [{:keys [name]}] (not (contains? (set (map :name table-viewers)) name))) v)
                                            table-viewers)))))
 
