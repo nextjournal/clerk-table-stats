@@ -356,7 +356,7 @@
                   (when @!expanded ["rotate-180"]))}
          [icon-chevron]]]
        [:ul.rounded.font-sans.bg-white.py-1.text-base.shadow-lg.border.border-slate-300.not-prose
-        {:tabindex "-1"
+        {:tabIndex "-1"
          :role "listbox"
          :class ["focus:outline-none" "sm:text-sm"]}
         [:li {:class ["px-2" "pt-1" "pb-1.5"]}
@@ -460,7 +460,7 @@
                              (first header-cell)
                              header-cell)
                          title (when (or (string? k) (keyword? k) (symbol? k)) k)
-                         {:keys [translated-keys column-layout number-col?] :or {translated-keys {}}} opts]
+                         {:keys [translated-keys column-layout] :or {translated-keys {}}} opts]
                      [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-l.first:border-l-0.border-slate-300.text-center.whitespace-nowrap.border-b.align-top
                       (cond-> {:class ["print:text-[10px]"
                                        "print:bg-transparent"
@@ -492,9 +492,8 @@
              (map
               (fn [{:keys [cell idx]}]
                 [:th.text-slate-600.text-xs.px-1.py-1.bg-slate-100.first:rounded-md-tl.last:rounded-md-r.border-slate-300.text-center.whitespace-nowrap.border-b.align-bottom
-                 {:class (if (< 0 idx) "border-l")}
-                 (let [sub-header-key (second cell)
-                       col-filter     (get (:filters opts) cell)]
+                 {:class (when (< 0 idx) "border-l")}
+                 (let [sub-header-key (second cell)]
                    [:div.flex.flex-col.gap-1
                     [:div.relative.flex.justify-center
                      (get (:translated-keys opts {}) sub-header-key sub-header-key)]
