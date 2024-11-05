@@ -421,33 +421,6 @@
          :stroke-linejoin "round"}
    [:path {:d "M5 10L9 14L15 5"}]])
 
-(defn filter-button [table-state opts cell idx]
-  (r/with-let [!expanded (r/atom false)]
-    (let [filter (-> @table-state :active-filters (get idx) keys first)]
-      [:div.absolute.right-1.size-4.text-slate-300.hover:text-slate-500
-       [popup {:!expanded !expanded}
-        [:div
-         {:class [(when filter "text-slate-500")]}
-         [icon-filter]]
-        [:ul.rounded.font-sans.bg-white.py-1.text-base.shadow-lg.border.border-slate-300.not-prose
-         (for [[type name] [[nil        "No filter"]
-                            [:substring "Substring"]
-                            [:regexp    "Regexp"]
-                            [:one-of    "Multiselect"]]
-               :let [selected? (= filter type)]]
-           [:li.cursor-default.select-none.flex.items-center
-            {:class ["pl-2" "pr-3" "py-0.5" "sm:text-sm" "sm:leading-6" "hover:bg-slate-200"]
-             :on-click (fn [_]
-                         (when-not selected?
-                           (if type
-                             (swap! table-state update :active-filters assoc idx {type nil})
-                             (swap! table-state update :active-filters dissoc idx)))
-                         (reset! !expanded false))}
-            [:span.size-5.mr-1
-             (when selected?
-               [icon-checkmark])]
-            name])]]])))
-
 (defn render-table-head
   [header-row {:as opts :keys [table-state]}]
   (let [cells* (viewer/desc->values header-row)
@@ -501,9 +474,7 @@
                         title (assoc :title title))
                       [:div.flex.flex-col.gap-1
                        [:div.relative.flex.justify-center
-                        [:span.px-6 (get translated-keys k k)]
-                        (when-not has-subheaders?
-                          [filter-button table-state opts header-cell idx])]
+                        [:span.px-6 (get translated-keys k k)]]
                        (when-not has-subheaders?
                          [:<>
                           (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
@@ -526,8 +497,7 @@
                        col-filter     (get (:filters opts) cell)]
                    [:div.flex.flex-col.gap-1
                     [:div.relative.flex.justify-center
-                     (get (:translated-keys opts {}) sub-header-key sub-header-key)
-                     [filter-button table-state opts cell idx]]
+                     (get (:translated-keys opts {}) sub-header-key sub-header-key)]
                     (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
                       [table-col-filter {:filter-type col-filter
                                          :filter-data (get (:filter-data opts) idx)
