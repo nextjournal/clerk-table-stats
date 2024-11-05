@@ -633,7 +633,7 @@
 
 (defn parse-query [s]
   (for [match (.matchAll s filter-regexp)
-        :let [groups    (.-groups match)
+        :let [groups    ^js (.-groups match)
               start     (.-index match)
               full      (aget match 0)
               modifier  (-> groups .-modifier not-blank)
@@ -642,7 +642,7 @@
               value     (-> groups .-value not-blank)]]
     {:start-idx   start
      :modifier    modifier
-     :key-quote   (when-some [fullkey (-> groups .-fullkey not-blank)]
+     :key-quote   (when-some [fullkey (-> ^js groups .-fullkey not-blank)]
                     (#{"'" "\""} (subs fullkey 0 1)))
      :key         key
      :value-idx   (when delimeter

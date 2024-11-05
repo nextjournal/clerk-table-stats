@@ -370,7 +370,7 @@
 (defn parse-query [s]
   (vec
    (for [match (match-all filter-regexp s)
-         :let [groups    #?(:clj (:named match) :cljs (.-groups match))
+         :let [groups    #?(:clj (:named match) :cljs ^js (.-groups match))
                start     #?(:clj (:start match) :cljs (.-index match))
                full      #?(:clj (-> match :groups first) :cljs (aget match 0))
                modifier  #?(:clj (-> groups :modifier not-blank) :cljs (-> groups .-modifier not-blank))
