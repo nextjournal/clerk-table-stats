@@ -255,8 +255,7 @@
                                           (assoc-in acc k v))
                                         {}))))))
 
-(defn compute-filters-data [{:as data :keys [rows visible-paths]}
-                            {:as opts :keys [active-filters]}]
+(defn compute-filters-data [{:as data :keys [rows active-filters]}]
   (reduce-kv
    (fn [data idx filter]
      (let [filter-type (first (keys filter))]
@@ -482,7 +481,7 @@
                :else nil)
        stats (compute-table-summary opts)
        true (guess-active-filters opts)
-       true (compute-filters-data opts)
+       true (compute-filters-data)
        true (compute-autocomplete-data opts)
        true (update :rows #(filter row-filter-fn %))
        search-query #?(:clj (filter-by-query search-query)
