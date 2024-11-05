@@ -438,29 +438,24 @@
       (update data :rows #(filter (apply every-pred filters) %))
       data)))
 
-(do
+(defn guess-filter [i rows]
+  (let [values (map (fn [row] (nth row i)) rows)
+        distinct-values (set values)
+        types (set (map classified-type distinct-values))]
+    (cond
+      (= #{'boolean} types) {:one-of distinct-values}
+      (= #{'number} types) {:ranges [(reduce min distinct-values) (reduce max distinct-values)]}
+      (= #{'string} types) {:substring ""}
+      (< (count distinct-values) 15) {:one-of distinct-values}
+      :else {:substring ""})))
 
-  (defn guess-filter [i rows]
-    (set (map (fn [row] (type (nth row i))) rows)))
-
-  (defn guess-active-filters [{:as opts :keys [active-filters]} {:as data :keys [rows paths]}]
-    (assoc data
-           :active-filters
-           (map-indexed (fn [i path]
-                          [i (get active-filters path (guess-filter i rows))])
-                        paths)))
-  (guess-active-filters {:active-filters {[:foo] :number
-                                          [:baz :quux] :number}}
-                        {:schema '(:foo :bar [:baz [:quux :xyzzy]]),
-                         :paths '([:foo] [:bar] [:baz :quux] [:baz :xyzzy]),
-                         :hidden-paths #{},
-                         :head '(:foo :bar [:baz [:quux :xyzzy]]),
-                         :visible-paths '([:foo] [:bar] [:baz :quux] [:baz :xyzzy]),
-                         :rows '((1 2 23 42) (3 4 23 42) (3 4 23 42) (3 4 :nextjournal/missing :nextjournal/missing)),
-                         :autocomplete-data {0 {:values #{1 3}},
-                                             1 {:values #{4 2}},
-                                             2 {:values #{23 :nextjournal/missing}},
-                                             3 {:values #{:nextjournal/missing 42}}}}))
+(defn guess-active-filters [{:as data :keys [rows paths]}
+                            {:as opts :keys [active-filters]}]
+  (assoc data
+         :active-filters
+         (into {} (map-indexed (fn [i path]
+                                 [i (get active-filters path (guess-filter i rows))])
+                               paths))))
 
 (defn normalize-table-data
   ([data] (normalize-table-data {} data))
@@ -476,7 +471,7 @@
                (empty? data) {:rows []}
                :else nil)
        stats (compute-table-summary opts)
-       false (guess-active-filters opts)
+       true (guess-active-filters opts)
        true (compute-filters-data opts)
        true (compute-autocomplete-data opts)
        true (update :rows #(filter row-filter-fn %))
