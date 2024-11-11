@@ -242,7 +242,7 @@
     [input value set-value
      (cond-> {:placeholder (-> filter-type name str/capitalize (str "..."))
               :auto-focus true}
-       filter! (assoc :on-blur (fn [e] (filter! (extract-filters @table-state)))))]))
+       (and false filter!) (assoc :on-blur (fn [e] (filter! (extract-filters @table-state)))))]))
 
 (defn find-parent [node pred]
   (loop [node node]
@@ -344,7 +344,7 @@
     (let [selected (-> @table-state :active-filters (get idx) :one-of (or #{}))]
       [popup {:!expanded !expanded
               :on-close  #(do (reset! !input-text "")
-                              (when filter!
+                              #_(when filter!
                                 (filter! (extract-filters @table-state))))}
        [:button
         {:class ["block" "relative" "font-normal" "w-full" "cursor-default"
@@ -435,6 +435,7 @@
 (defn render-table-head
   [header-row {:as opts :keys [table-state filter!]}]
   (let [cells* (viewer/desc->values header-row)
+        filter! (some-> filter! eval)
         cells (mapcat #(if (vector? %)
                          (let [fst (first %)
                                vs (second %)]
@@ -462,6 +463,8 @@
            (set! (.-width (.-style th)) (str (.-offsetWidth th) "px"))
            (set! (.-maxWidth (.-style th)) (str (.-offsetWidth th) "px"))))))
     [:thead {:ref !thead}
+     [:tr [:button {:class ["block" "cursor-default" "p-2" "rounded" "bg-blue-800" "text-white" "shadow-sm"]
+                    :on-click (fn [_] (filter! (extract-filters @table-state)))} "filter"]]
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
                    (let [header-cell (:cell cell)
@@ -493,7 +496,7 @@
                                                       :filter-data (get (:filter-data opts) idx)
                                                       :table-state table-state
                                                       :idx idx}
-                                                     (:filter! opts) (assoc :filter! (-> opts :filter! eval)))])
+                                                     filter! (assoc :filter! filter!))])
                           (when-let [summary (:summary opts)]
                             [table-col-summary (get-in summary [k])
                              {:table-state table-state
