@@ -232,12 +232,17 @@
            (.preventDefault event)))}
       [icon-reset]])])
 
-(defn table-col-filter-text [filter-type {:keys [table-state idx]}]
+(defn extract-filters [table-state]
+  ;TODO
+  (:active-filters table-state))
+
+(defn table-col-filter-text [filter-type {:as opts :keys [table-state idx filter!]}]
   (let [value     (-> @table-state :active-filters (get idx) filter-type (or ""))
         set-value #(swap! table-state assoc-in [:active-filters idx filter-type] %)]
     [input value set-value
-     {:placeholder (-> filter-type name str/capitalize (str "..."))
-      :auto-focus  true}]))
+     (cond-> {:placeholder (-> filter-type name str/capitalize (str "..."))
+              :auto-focus true}
+       filter! (assoc :on-blur (fn [e] (filter! (extract-filters @table-state)))))]))
 
 (defn find-parent [node pred]
   (loop [node node]
@@ -332,13 +337,15 @@
   (when s
     (-> s str/trim str/lower-case)))
 
-(defn table-col-filter-multiselect [{:keys [filter-data table-state idx]}]
+(defn table-col-filter-multiselect [{:keys [filter-data table-state idx filter!]}]
   (r/with-let [!expanded   (r/atom false)
                !input-text (r/atom "")
                value->str  #(if (= :nextjournal/missing %) "N/A" (str %))]
     (let [selected (-> @table-state :active-filters (get idx) :one-of (or #{}))]
       [popup {:!expanded !expanded
-              :on-close  #(reset! !input-text "")}
+              :on-close  #(do (reset! !input-text "")
+                              (when filter!
+                                (filter! (extract-filters @table-state))))}
        [:button
         {:class ["block" "relative" "font-normal" "w-full" "cursor-default"
                  "rounded" "text-left" "shadow-sm" "ring-1" "ring-slate-300"
@@ -402,6 +409,10 @@
      [table-col-filter-text :regexp opts]
 
      :one-of
+     [table-col-filter-multiselect opts]
+
+     ;TODO
+     :ranges
      [table-col-filter-multiselect opts])])
 
 (defn icon-filter []
@@ -422,7 +433,7 @@
    [:path {:d "M5 10L9 14L15 5"}]])
 
 (defn render-table-head
-  [header-row {:as opts :keys [table-state]}]
+  [header-row {:as opts :keys [table-state filter!]}]
   (let [cells* (viewer/desc->values header-row)
         cells (mapcat #(if (vector? %)
                          (let [fst (first %)
@@ -478,10 +489,11 @@
                        (when-not has-subheaders?
                          [:<>
                           (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
-                            [table-col-filter {:filter-type col-filter
-                                               :filter-data (get (:filter-data opts) idx)
-                                               :table-state table-state
-                                               :idx idx}])
+                            [table-col-filter (cond-> {:filter-type col-filter
+                                                      :filter-data (get (:filter-data opts) idx)
+                                                      :table-state table-state
+                                                      :idx idx}
+                                                     (:filter! opts) (assoc :filter! (-> opts :filter! eval)))])
                           (when-let [summary (:summary opts)]
                             [table-col-summary (get-in summary [k])
                              {:table-state table-state
@@ -498,10 +510,11 @@
                     [:div.relative.flex.justify-center
                      (get (:translated-keys opts {}) sub-header-key sub-header-key)]
                     (when-some [col-filter (-> @table-state :active-filters (get idx) keys first)]
-                      [table-col-filter {:filter-type col-filter
-                                         :filter-data (get (:filter-data opts) idx)
-                                         :table-state table-state
-                                         :idx idx}])
+                      [table-col-filter (merge {:filter-type col-filter
+                                                :filter-data (get (:filter-data opts) idx)
+                                                :table-state table-state
+                                                :idx idx}
+                                               (select-keys opts [:filter!]))])
                     (when-let [summary (:summary opts)]
                       [table-col-summary (get-in summary cell)
                        {:table-state table-state

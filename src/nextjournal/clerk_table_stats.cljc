@@ -443,7 +443,7 @@
         types (set (map classified-type distinct-values))]
     (cond
       (= #{'boolean} types) {:one-of distinct-values}
-      (= #{'number} types) {:ranges [(reduce min distinct-values) (reduce max distinct-values)]}
+      #_#_(= #{'number} types) {:ranges [(reduce min distinct-values) (reduce max distinct-values)]}
       (= #{'string} types) {:substring ""}
       (< (count distinct-values) 15) {:one-of distinct-values}
       :else {:substring ""})))
@@ -453,6 +453,10 @@
   (assoc data
          :active-filters
          (into {} (map-indexed (fn [i path]
+                                 [i (get active-filters i (guess-filter i rows))])
+                               paths))
+         ;;TODO active filters as map of path -> filter
+         #_ (into {} (map-indexed (fn [i path]
                                  [i (get active-filters path (guess-filter i rows))])
                                paths))))
 
@@ -569,7 +573,10 @@
                                                            (if (seq rows)
                                                              (map (partial viewer/with-viewer table-row-viewer) rows)
                                                              [(viewer/html [:span.italic "this table has no rows"])]))]
-                                                 head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer) head)))))
+                                                 head (cons (viewer/with-viewer (:name table-head-viewer table-head-viewer)
+                                                              {:nextjournal/render-opts #_ {:filter! '(fn [filters] (.log js/console "filter" ( pr-str filters)))}
+                                                               (select-keys render-opts [:filter!])}
+                                                               head)))))
                  (-> wrapped-value
                      viewer/mark-presented
                      (assoc :nextjournal/width :wide)
