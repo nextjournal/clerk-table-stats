@@ -463,8 +463,8 @@
            (set! (.-width (.-style th)) (str (.-offsetWidth th) "px"))
            (set! (.-maxWidth (.-style th)) (str (.-offsetWidth th) "px"))))))
     [:thead {:ref !thead}
-     [:tr [:button {:class ["block" "cursor-default" "p-2" "rounded" "bg-blue-800" "text-white" "shadow-sm"]
-                    :on-click (fn [_] (filter! (extract-filters @table-state)))} "filter"]]
+     [:tr [:th [:button {:class ["block" "cursor-default" "p-2" "rounded" "bg-blue-800" "text-white" "shadow-sm"]
+                         :on-click (fn [_] (filter! (extract-filters @table-state)))} "filter"]]]
      (into [:tr.print:border-b-2.print:border-black]
            (keep (fn [cell]
                    (let [header-cell (:cell cell)
