@@ -449,11 +449,13 @@
       :else {:substring ""})))
 
 (defn guess-active-filters [{:as data :keys [rows paths]}
-                            {:as opts :keys [active-filters]}]
+                            opts]
   (assoc data
          :active-filters
          (into {} (map-indexed (fn [i path]
-                                 [i (get active-filters i (guess-filter i rows))])
+                                 [i (or (get (:active-filters data) i)
+                                        (get (:active-filters opts) i)
+                                        (guess-filter i rows))])
                                paths))
          ;;TODO active filters as map of path -> filter
          #_ (into {} (map-indexed (fn [i path]
