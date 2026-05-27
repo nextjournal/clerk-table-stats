@@ -108,7 +108,8 @@
                                    (if-let [transform-fn (get transform-columns path)]
                                      (transform-fn m)
                                      (get-in m path viewer/missing-pred))) visible-paths)
-                            {:data m}))))})))
+                            (merge {:data m}
+                                   (meta m))))))})))
 
 (defn normalize-map-of-seq
   ([s] (normalize-map-of-seq {} s))
